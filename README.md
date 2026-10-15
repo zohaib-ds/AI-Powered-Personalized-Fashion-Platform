@@ -1,23 +1,32 @@
-# Tee Studio
+# WearSketch
 
-Design a free-size T-shirt in 3D, order one piece, get it printed in Delhi and delivered by Ekart.
+Design a free-size T-shirt on a real 3D model, order one piece, get it printed in Delhi and delivered by Ekart.
 
-## What's in it
+## Pages
 
-- **3D editor** (`/`): rotate the shirt, pick a colour, add images and text to the front or back, drag prints on the shirt, live price.
-- **Checkout**: delivery details (Delhi pincodes only), then a **sample payment** that marks the order paid. No money is charged.
-- **Print files**: the browser renders each printed side as a transparent PNG at 300 DPI and uploads it with the order.
-- **Order page** (`/order/<id>`): the customer's receipt and status.
-- **Admin** (`/admin`): every order with print-file downloads, printer, Ekart tracking and status. Password protected.
+| Page | What it is |
+| --- | --- |
+| `/` | Home: spinning 3D shirt, how it works, print areas, pricing, FAQ |
+| `/studio` | 3D design studio: draw, add text and images on the front, back and both sleeves, live price, checkout |
+| `/order/<id>` | The customer's receipt, progress tracker and review form |
+| `/track` | Find an order by its number and phone |
+| `/help`, `/policies`, `/about` | FAQ and contact, shipping/reprint/privacy, story |
+| `/printer` | Printer portal: each print partner signs in with an access code and sees their orders, print files, delivery address and customer reviews |
+| `/admin` | Owner view (password): all orders, assign printers, add printers, reviews |
 
 ## Setup (one time)
 
-1. **Supabase**: open your project → SQL Editor → paste `supabase/schema.sql` → Run.
-2. **Vercel**: import this GitHub repo, then add these environment variables (Supabase → Project settings → API):
+1. **Supabase**: open your project → SQL Editor → paste `supabase/schema.sql` → Run. It is safe to run again after updates.
+2. **Vercel**: add these environment variables (Supabase → Project settings → API keys):
    - `SUPABASE_URL`
-   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` (the secret key)
    - `ADMIN_PASSWORD` (any password; use it at `/admin` with any username)
 3. Deploy. Every push to `main` redeploys.
+4. In `/admin` → Printers, add each print partner and send them their access code and the `/printer` link.
+
+## Order flow
+
+Customer pays (sample payment for now) → order shows in `/admin` as **Paid** → you pick a printer → it appears in that printer's portal → printer downloads the 300 DPI PNGs, prints, ships with Ekart and adds the tracking number → customer sees each step and can leave a review → the printer and admin see the review.
 
 ## Run locally
 
@@ -31,7 +40,8 @@ npm run dev
 
 | What | File |
 | --- | --- |
-| Brand name, logo, tagline | `lib/brand.ts` (logo file goes in `public/`) |
-| Prices and delivery fee | `lib/pricing.ts` |
-| Shirt colours, print area size | `lib/design.ts` |
+| Brand name, logo, support email and WhatsApp | `lib/brand.ts` (logo file goes in `public/`) |
+| Printer rates, delivery fee, 15% margin | `lib/pricing.ts` |
+| Shirt colours, fonts, print area sizes | `lib/design.ts` |
 | Real payment gateway | `lib/payments.ts` and `app/api/orders/[id]/pay/route.ts` |
+| The 3D shirt model | `public/models/tee-mesh.json`, loaded by `lib/studio/shirt.ts` |
