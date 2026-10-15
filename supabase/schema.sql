@@ -1,5 +1,5 @@
--- Run this once in Supabase → SQL Editor → New query.
--- Creates the orders table and a private bucket for print files.
+-- Run this in Supabase → SQL Editor → New query → Run.
+-- Safe to run again: it only adds what is missing.
 
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
@@ -26,8 +26,42 @@ create table if not exists public.orders (
 
 create index if not exists orders_created_at_idx on public.orders (created_at desc);
 
--- Only the server (service role key) touches orders. No public access.
+-- Print partners. Each one signs in at /printer with their access code.
+create table if not exists public.printers (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  name text not null,
+  area text,
+  phone text,
+  access_code text not null unique,
+  active boolean not null default true
+);
+
+-- WearSketch additions to orders
+alter table public.orders add column if not exists code text;
+alter table public.orders add column if not exists printer_id uuid references public.printers (id) on delete set null;
+alter table public.orders add column if not exists printer_cost int;
+alter table public.orders add column if not exists printer_note text;
+alter table public.orders add column if not exists updated_at timestamptz not null default now();
+update public.orders set code = upper(left(id::text, 8)) where code is null;
+create unique index if not exists orders_code_idx on public.orders (code);
+create index if not exists orders_printer_idx on public.orders (printer_id, created_at desc);
+
+-- One review per order, left by the customer on their order page.
+create table if not exists public.reviews (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  order_id uuid not null unique references public.orders (id) on delete cascade,
+  rating int not null check (rating between 1 and 5),
+  comment text,
+  name text,
+  show_on_site boolean not null default false
+);
+
+-- Only the server (secret key) reads or writes these tables. No public access.
 alter table public.orders enable row level security;
+alter table public.printers enable row level security;
+alter table public.reviews enable row level security;
 
 -- Print files: private bucket, the server hands out signed upload/download links.
 insert into storage.buckets (id, name, public)
