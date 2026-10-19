@@ -9,7 +9,9 @@ import {
 } from '../design';
 import { backdrop, createShirtScene, loadShirtGeometry, paintFabric, type ShirtScene } from './shirt';
 
-const INKS = ['#111111', '#ffffff', '#e8352b', '#ff9f1c', '#ffd23f', '#2bb673', '#2f80ed', '#8e44ff', '#ff5fa2'];
+// screen-print style inks
+const SEL_INK = '#b8391a';
+const INKS = ['#111111', '#ffffff', '#c8302a', '#e0702a', '#efbf2f', '#2f7d4a', '#2453a6', '#7a4b2a', '#8c8c8c'];
 const BASE = 120; // text is laid out at 120 px and scaled
 const fontCss = (f: string, px = BASE) => `${FONTS[f]?.style ?? ''}${FONTS[f]?.weight ?? '400'} ${px}px "${f}"`;
 const STORE_KEY = 'wearsketch-design-v1';
@@ -219,7 +221,7 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
     ctx.translate(o.x, o.y);
     ctx.rotate(o.rot);
     const w = (o.w * o.scale) / 2 + 12, h = (o.h * o.scale) / 2 + 12;
-    ctx.strokeStyle = '#2f4bff';
+    ctx.strokeStyle = SEL_INK;
     ctx.lineWidth = 4;
     ctx.setLineDash([14, 10]);
     ctx.strokeRect(-w, -h, w * 2, h * 2);
@@ -227,10 +229,8 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
     ctx.fillStyle = '#ffffff';
     ctx.lineWidth = 5;
     for (const [x, y] of [[-w, -h], [w, -h], [-w, h], [w, h]]) {
-      ctx.beginPath();
-      ctx.arc(x, y, 15, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+      ctx.fillRect(x - 13, y - 13, 26, 26);
+      ctx.strokeRect(x - 13, y - 13, 26, 26);
     }
     ctx.restore();
   }
@@ -239,12 +239,12 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
     ctx.save();
     ctx.lineWidth = 3;
     ctx.setLineDash([16, 12]);
-    ctx.font = '600 22px "Instrument Sans", system-ui, sans-serif';
+    ctx.font = '600 22px "Archivo", system-ui, sans-serif';
     ctx.textBaseline = 'top';
     for (const z of ZONES) {
       const b = ZONE_INFO[z];
       const active = z === state.zone;
-      ctx.strokeStyle = dark ? (active ? 'rgba(47,75,255,.85)' : 'rgba(20,24,34,.32)') : active ? 'rgba(160,174,255,.95)' : 'rgba(255,255,255,.38)';
+      ctx.strokeStyle = dark ? (active ? 'rgba(184,57,26,.9)' : 'rgba(30,29,27,.32)') : active ? 'rgba(255,190,160,.95)' : 'rgba(255,255,255,.42)';
       ctx.strokeRect(b.x, b.y, b.w, b.h);
       if (z === 'front' || z === 'back') {
         ctx.fillStyle = ctx.strokeStyle;
@@ -548,8 +548,7 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
     $('colorName').textContent = c.name;
     sw.querySelectorAll<HTMLElement>('.sw').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === c.id)));
     const bd = backdrop(c.hex), st = stage.style;
-    st.setProperty('--bd-top', bd.top);
-    st.setProperty('--bd-bot', bd.bot);
+    st.setProperty('--bd-bg', bd.bg);
     st.setProperty('--bd-fg', bd.fg);
     st.setProperty('--bd-muted', bd.muted);
     S.setColor(c.hex);
@@ -863,14 +862,11 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
       c.width = W;
       c.height = H;
       const g = c.getContext('2d')!;
-      const bg = g.createRadialGradient(W / 2, H * 0.4, 50, W / 2, H * 0.45, W * 0.85);
-      bg.addColorStop(0, bd.top);
-      bg.addColorStop(1, bd.bot);
-      g.fillStyle = bg;
+      g.fillStyle = bd.bg;
       g.fillRect(0, 0, W, H);
       g.drawImage(renderer.domElement, 0, 0, W, H);
       g.fillStyle = bd.muted;
-      g.font = "600 28px 'Instrument Sans', system-ui, sans-serif";
+      g.font = "600 28px 'Archivo', system-ui, sans-serif";
       g.textAlign = 'center';
       g.fillText(name.toUpperCase(), W / 2, H - 36);
       shots.push(c);

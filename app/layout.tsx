@@ -4,19 +4,19 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: `${BRAND.name} · Design your own T-shirt in 3D`,
-  description: 'Sketch, type or upload on a real 3D shirt. Printed in Delhi, one piece, no minimum, delivered by Ekart.',
+  description: 'Design a T-shirt on a 3D model: draw, add text or upload an image on the front, back and sleeves. Printed in Delhi and delivered by Ekart. No minimum order.',
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: [{ media: '(prefers-color-scheme: light)', color: '#eceef3' }, { media: '(prefers-color-scheme: dark)', color: '#12141a' }],
+  themeColor: '#f3efe7',
 };
 
-// UI fonts plus the print fonts, loaded by family name so the canvas can draw them.
+// UI fonts (Archivo, IBM Plex Mono) plus the print fonts, loaded by family name so the canvas can draw them.
 const FONTS =
-  'https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Pacifico&family=Permanent+Marker&family=Playfair+Display:ital,wght@1,700&family=Space+Mono:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Instrument+Sans:wght@400;500;600;700&display=swap';
+  'https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Pacifico&family=Permanent+Marker&family=Playfair+Display:ital,wght@1,700&family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500;700&display=swap';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

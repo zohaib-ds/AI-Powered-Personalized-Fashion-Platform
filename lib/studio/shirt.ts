@@ -145,26 +145,12 @@ export function paintFabric(ctx: CanvasRenderingContext2D, color: string) {
   ctx.setLineDash([]);
 }
 
-// a backdrop that always contrasts with the shirt colour
-function hexToHsl(h: string): [number, number, number] {
-  const n = parseInt(h.slice(1), 16);
-  const r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
-  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
-  let hu = 0, sa = 0;
-  if (mx !== mn) {
-    const d = mx - mn;
-    sa = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
-    hu = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
-    hu *= 60;
-  }
-  return [hu, sa, l];
-}
+// Flat studio background behind the shirt: darker stone for light shirts,
+// pale paper for dark ones, so the shirt always stands out.
 export function backdrop(hex: string) {
-  const [h, s] = hexToHsl(hex);
-  const light = hexLum(hex) > 0.5, hue = (h + 180) % 360, sat = s < 0.12 ? 10 : 24;
-  return light
-    ? { top: `hsl(${hue} ${sat}% 30%)`, bot: `hsl(${hue} ${sat}% 14%)`, fg: '#f3f4f7', muted: 'rgba(243,244,247,.72)', shadow: 0.5 }
-    : { top: `hsl(${hue} ${sat}% 97%)`, bot: `hsl(${hue} ${sat}% 84%)`, fg: '#171a22', muted: 'rgba(23,26,34,.66)', shadow: 1 };
+  return hexLum(hex) > 0.5
+    ? { bg: '#c9c1b2', fg: '#1e1d1b', muted: 'rgba(30,29,27,.72)', shadow: 0.5 }
+    : { bg: '#ece6db', fg: '#1e1d1b', muted: 'rgba(30,29,27,.66)', shadow: 1 };
 }
 
 // ---------- scene ----------

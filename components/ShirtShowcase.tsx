@@ -3,22 +3,23 @@
 import { useEffect, useRef, useState } from 'react';
 import { COLOURS, ZONE_INFO } from '@/lib/design';
 
-// The spinning 3D shirt on the home page, wearing a sample WearSketch design.
-const PICKS = ['white', 'black', 'sky', 'mustard', 'forest', 'pink'];
+// The 3D shirt on the home page, wearing a sample design in two inks.
+const PICKS = ['white', 'black', 'heather-grey', 'navy', 'red', 'forest'];
 
 function paintSample(ctx: CanvasRenderingContext2D, dark: boolean) {
-  const ink = dark ? '#f4f4f1' : '#14161c';
+  const ink = dark ? '#f4f4f1' : '#1e1d1b';
+  const red = dark ? '#e8775a' : '#b8391a';
   const f = ZONE_INFO.front, b = ZONE_INFO.back, sl = ZONE_INFO.sleeveL;
   const cx = f.x + f.w / 2;
   ctx.save();
   // front: a hand-drawn sun and a marker wordmark
   ctx.lineCap = ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#ff5fa2';
+  ctx.strokeStyle = red;
   ctx.lineWidth = 16;
   ctx.beginPath();
   ctx.arc(cx, f.y + 150, 70, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.strokeStyle = '#ffd23f';
+  ctx.strokeStyle = red;
   ctx.lineWidth = 12;
   for (let i = 0; i < 10; i++) {
     const a = (i / 10) * Math.PI * 2;
@@ -33,22 +34,20 @@ function paintSample(ctx: CanvasRenderingContext2D, dark: boolean) {
   ctx.font = '400 84px "Permanent Marker"';
   ctx.fillText('sketch it.', cx, f.y + 330);
   ctx.font = '400 64px "Bebas Neue"';
-  ctx.fillStyle = '#2f80ed';
-  ctx.fillText('WEAR IT IN DELHI', cx, f.y + 420);
+  ctx.fillStyle = red;
+  ctx.fillText('PRINTED IN DELHI', cx, f.y + 420);
   // back: big type
   const bx = b.x + b.w / 2;
   ctx.fillStyle = ink;
   ctx.font = '400 150px "Anton"';
   ctx.fillText('ONE', bx, b.y + 120);
   ctx.fillText('OF ONE', bx, b.y + 280);
-  ctx.font = '700 40px "Space Mono"';
-  ctx.fillStyle = '#e8352b';
+  ctx.font = '700 40px "IBM Plex Mono"';
+  ctx.fillStyle = red;
   ctx.fillText('DESIGNED BY YOU', bx, b.y + 400);
   // sleeve badge
-  ctx.fillStyle = '#2f4bff';
-  ctx.beginPath();
-  ctx.arc(sl.x + sl.w / 2, sl.y + sl.h / 2, 52, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.fillStyle = red;
+  ctx.fillRect(sl.x + sl.w / 2 - 50, sl.y + sl.h / 2 - 50, 100, 100);
   ctx.fillStyle = '#fff';
   ctx.font = '400 54px "Bebas Neue"';
   ctx.fillText('WS', sl.x + sl.w / 2, sl.y + sl.h / 2 + 3);
@@ -67,7 +66,7 @@ export default function ShirtShowcase() {
     (async () => {
       const [{ createShirtScene, loadShirtGeometry, paintFabric, hexLum }, { TEX }] = await Promise.all([import('@/lib/studio/shirt'), import('@/lib/design')]);
       const geo = await loadShirtGeometry();
-      await Promise.all(['400 84px "Permanent Marker"', '400 64px "Bebas Neue"', '400 150px "Anton"', '700 40px "Space Mono"'].map((f) => document.fonts.load(f).catch(() => {})));
+      await Promise.all(['400 84px "Permanent Marker"', '400 64px "Bebas Neue"', '400 150px "Anton"', '700 40px "IBM Plex Mono"'].map((f) => document.fonts.load(f).catch(() => {})));
       if (gone || !host.current) return;
       const tex = document.createElement('canvas');
       tex.width = tex.height = TEX;
@@ -110,12 +109,15 @@ export default function ShirtShowcase() {
 
   return (
     <div className="showcase">
-      <div className="showcase-view" ref={host}>{!ready && <span className="spinner" />}</div>
-      <div className="showcase-swatches" role="group" aria-label="Try a shirt colour">
-        {PICKS.map((id) => {
-          const c = COLOURS.find((x) => x.id === id)!;
-          return <button key={id} className="sw" style={{ background: c.hex }} aria-label={c.name} title={c.name} aria-pressed={colour === id} onClick={() => { setColourId(id); setColour.current(id); }} />;
-        })}
+      <div className="showcase-view" ref={host}>{!ready && <span className="loading">Loading the 3D shirt…</span>}</div>
+      <div className="showcase-bar">
+        <p className="showcase-note">Live 3D model with a sample design. Drag to turn it.</p>
+        <div className="showcase-swatches" role="group" aria-label="Try a shirt colour">
+          {PICKS.map((id) => {
+            const c = COLOURS.find((x) => x.id === id)!;
+            return <button key={id} className="sw" style={{ background: c.hex }} aria-label={c.name} title={c.name} aria-pressed={colour === id} onClick={() => { setColourId(id); setColour.current(id); }} />;
+          })}
+        </div>
       </div>
     </div>
   );
