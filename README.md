@@ -10,7 +10,8 @@ Design a free-size T-shirt on a real 3D model, order one piece, get it printed i
 | `/studio` | 3D design studio: draw, add text and images on the front, back and both sleeves, live price, checkout |
 | `/order/<id>` | The customer's receipt, progress tracker and review form |
 | `/track` | Find an order by its number and phone |
-| `/help`, `/policies`, `/about` | FAQ and contact, shipping/reprint/privacy, story |
+| `/help`, `/policies`, `/about` | FAQ and contact, shipping and reprints, about us |
+| `/privacy`, `/terms` | Privacy policy and terms and conditions (drafts: have them checked before launch) |
 | `/printer` | Printer portal: each print partner signs in with an access code and sees their orders, print files, delivery address and customer reviews |
 | `/admin` | Owner view (password): all orders, assign printers, add printers, reviews |
 
@@ -41,6 +42,8 @@ npm run dev
 | What | File |
 | --- | --- |
 | Brand name, logo, support email and WhatsApp | `lib/brand.ts` (logo file goes in `public/`) |
+| Favicon | `app/icon.svg`, `app/favicon.ico`, `app/apple-icon.png` |
+| Colours, fonts, layout | `app/globals.css` (flat colours, square corners, no shadows or gradients) |
 | Printer rates, delivery fee, 15% margin | `lib/pricing.ts` |
 | Shirt colours, fonts, print area sizes | `lib/design.ts` |
 | Real payment gateway | `lib/payments.ts` and `app/api/orders/[id]/pay/route.ts` |

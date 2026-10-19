@@ -74,7 +74,7 @@ export const FONTS: Record<string, { weight: string; style: string }> = {
   'Permanent Marker': { weight: '400', style: '' },
   Pacifico: { weight: '400', style: '' },
   'Playfair Display': { weight: '700', style: 'italic ' },
-  'Space Mono': { weight: '700', style: '' },
+  'IBM Plex Mono': { weight: '700', style: '' },
 };
 
 // What the order stores about each print. Positions are in cm from the

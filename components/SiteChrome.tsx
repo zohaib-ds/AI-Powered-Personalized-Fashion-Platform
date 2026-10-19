@@ -13,7 +13,7 @@ export function SiteHeader() {
           <Link href="/track">Track order</Link>
           <Link href="/help">Help</Link>
         </nav>
-        <Link href="/studio" className="btn primary">Start designing</Link>
+        <Link href="/studio" className="btn primary">Open the studio</Link>
       </div>
     </header>
   );
@@ -25,7 +25,7 @@ export function SiteFooter() {
       <div className="wrap footer-in">
         <div className="footer-brand">
           <Wordmark size={20} />
-          <p className="muted">{BRAND.tagline} One piece, no minimum order.</p>
+          <p className="muted">Custom T-shirts designed in 3D, printed in {BRAND.city} and delivered by Ekart.</p>
         </div>
         <div className="footer-cols">
           <div>
@@ -38,17 +38,18 @@ export function SiteFooter() {
             <h4>Orders</h4>
             <Link href="/track">Track your order</Link>
             <Link href="/help">Help and FAQ</Link>
-            <Link href="/policies">Shipping and returns</Link>
+            <Link href="/policies">Shipping and reprints</Link>
           </div>
           <div>
-            <h4>WearSketch</h4>
+            <h4>{BRAND.name}</h4>
             <Link href="/about">About us</Link>
-            <Link href="/policies#privacy">Privacy</Link>
+            <Link href="/privacy">Privacy policy</Link>
+            <Link href="/terms">Terms and conditions</Link>
             <Link href="/printer">For print partners</Link>
           </div>
         </div>
       </div>
-      <div className="wrap footer-base muted">© {new Date().getFullYear()} {BRAND.name} · Printed in {BRAND.city}, delivered by Ekart</div>
+      <div className="wrap footer-base muted">© {new Date().getFullYear()} {BRAND.name}</div>
     </footer>
   );
 }

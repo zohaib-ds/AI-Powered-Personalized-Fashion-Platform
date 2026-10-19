@@ -12,7 +12,7 @@ export const metadata = { title: 'Your order · WearSketch', robots: { index: fa
 const STEP_TEXT: Record<string, string> = {
   paid: 'Order placed',
   sent_to_printer: 'Printing in Delhi',
-  printed: 'Printed and checked',
+  printed: 'Printed',
   shipped: 'On the way with Ekart',
   delivered: 'Delivered',
 };
@@ -40,7 +40,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
         <div className="order-hero">
           <div>
             <p className="eyebrow">Order #{code}</p>
-            <h1>{o.status === 'pending_payment' ? 'Your order is waiting for payment' : o.status === 'cancelled' ? 'This order was cancelled' : fresh ? 'Thank you! Your shirt is on its way to the printer.' : STEP_TEXT[o.status] ?? STATUS_LABEL[o.status]}</h1>
+            <h1>{o.status === 'pending_payment' ? 'Your order is waiting for payment' : o.status === 'cancelled' ? 'This order was cancelled' : fresh ? 'Thank you. Your order is in.' : STEP_TEXT[o.status] ?? STATUS_LABEL[o.status]}</h1>
             <p className="muted">Keep this page. It updates as your shirt is printed and shipped. You can also find it any time from <Link href="/track">Track order</Link> with #{code} and your phone number.</p>
           </div>
         </div>

@@ -54,7 +54,7 @@ export default function Studio() {
         <div id="view" aria-label="3D t-shirt preview" />
         {state !== 'ready' && (
           <div className="stage-msg">
-            {state === 'loading' ? <><span className="spinner" />Loading your shirt…</> : 'Your browser could not show the 3D shirt. Try Chrome, or turn on hardware acceleration.'}
+            {state === 'loading' ? <span className="loading">Loading the 3D shirt…</span> : 'Your browser could not show the 3D shirt. Try Chrome, or turn on hardware acceleration.'}
           </div>
         )}
         <div className="top">

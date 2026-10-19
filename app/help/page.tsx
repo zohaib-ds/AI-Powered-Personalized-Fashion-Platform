@@ -10,13 +10,13 @@ const GROUPS: [string, [string, React.ReactNode][]][] = [
   ['Designing', [
     ['Where can I print?', `On the front (${ZONE_INFO.front.wCm} × ${ZONE_INFO.front.hCm} cm), the back (${ZONE_INFO.back.wCm} × ${ZONE_INFO.back.hCm} cm) and the outside of each sleeve (${ZONE_INFO.sleeveL.wCm} × ${ZONE_INFO.sleeveL.hCm} cm). The sides of the shirt are not printed. The studio shows these areas as dashed boxes.`],
     ['What images work best?', 'A PNG with a transparent background, at least 2000 pixels wide for a full front print. The studio tells you the print quality of every image at the size you chose.'],
-    ['Will the colours look exactly like my screen?', 'Very close, but screens glow and fabric does not, so bright neon colours print slightly softer. Dark ink on light shirts and light ink on dark shirts always looks crisp.'],
+    ['Will the colours look exactly like my screen?', 'Close, but not exactly. A screen gives off light and fabric does not, so very bright colours print a little duller. Dark ink on a light shirt, or light ink on a dark shirt, gives the clearest print.'],
     ['Is my design saved?', 'Yes, in your browser, automatically. Coming back on the same device brings it back.'],
   ]],
   ['Orders and delivery', [
     ['How much does it cost?', <>Shirts start at {rupee(FROM_PRICE)} with one printed side. Ekart delivery in Delhi is {rupee(PRICES.delivery)} per order. See <Link href="/#pricing">pricing</Link>.</>],
-    ['Where do you deliver?', `${BRAND.city} for now, any pincode starting with 110. More cities are coming.`],
-    ['What size is the shirt?', 'Every shirt is our free-size, relaxed fit tee for now. More sizes are coming soon.'],
+    ['Where do you deliver?', `${BRAND.city} for now, any pincode starting with 110.`],
+    ['What size is the shirt?', 'Every shirt is our free-size, relaxed fit tee for now.'],
     ['How do I track my order?', <>Your order page updates at every step. Find it any time from <Link href="/track">Track order</Link>.</>],
   ]],
   ['Problems', [
@@ -31,7 +31,7 @@ export default function Help() {
       <SiteHeader />
       <main className="wrap page-narrow">
         <p className="eyebrow">Help</p>
-        <h1>How can we help?</h1>
+        <h1>Help and questions</h1>
         {GROUPS.map(([title, items]) => (
           <section key={title} className="help-group">
             <h2>{title}</h2>

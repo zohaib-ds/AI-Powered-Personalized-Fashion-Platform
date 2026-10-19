@@ -89,7 +89,7 @@ export default function Checkout({ api, design, qty, quote: q, onClose }: Props)
     <dialog ref={ref} className="checkout" aria-labelledby="coTitle">
       <form onSubmit={submit} className="co-grid">
         <div className="co-summary">
-          <div className="co-preview">{preview ? <img src={preview} alt="Your shirt" /> : <span className="spinner" />}</div>
+          <div className="co-preview">{preview ? <img src={preview} alt="Your shirt" /> : <span className="loading">Making a preview…</span>}</div>
           <table className="lines"><tbody>
             {q.lines.map((l) => <tr key={l.label}><td>{l.label}</td><td>{rupee(l.amount)}</td></tr>)}
             {qty > 1 && <tr><td>× {qty} shirts</td><td>{rupee(q.subtotal)}</td></tr>}
