@@ -35,7 +35,7 @@ function paintSample(ctx: CanvasRenderingContext2D, dark: boolean) {
   ctx.fillText('sketch it.', cx, f.y + 330);
   ctx.font = '400 64px "Bebas Neue"';
   ctx.fillStyle = red;
-  ctx.fillText('PRINTED IN DELHI', cx, f.y + 420);
+  ctx.fillText('DESIGNED BY YOU', cx, f.y + 420);
   // back: big type
   const bx = b.x + b.w / 2;
   ctx.fillStyle = ink;
@@ -44,7 +44,7 @@ function paintSample(ctx: CanvasRenderingContext2D, dark: boolean) {
   ctx.fillText('OF ONE', bx, b.y + 280);
   ctx.font = '700 40px "IBM Plex Mono"';
   ctx.fillStyle = red;
-  ctx.fillText('DESIGNED BY YOU', bx, b.y + 400);
+  ctx.fillText('MADE TO ORDER', bx, b.y + 400);
   // sleeve badge
   ctx.fillStyle = red;
   ctx.fillRect(sl.x + sl.w / 2 - 50, sl.y + sl.h / 2 - 50, 100, 100);

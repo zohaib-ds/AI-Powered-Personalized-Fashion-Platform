@@ -11,7 +11,11 @@ import { backdrop, createShirtScene, loadShirtGeometry, paintFabric, type ShirtS
 
 // screen-print style inks
 const SEL_INK = '#b8391a';
-const INKS = ['#111111', '#ffffff', '#c8302a', '#e0702a', '#efbf2f', '#2f7d4a', '#2453a6', '#7a4b2a', '#8c8c8c'];
+const INKS = [
+  { hex: '#111111', name: 'Black' }, { hex: '#ffffff', name: 'White' }, { hex: '#c8302a', name: 'Red' },
+  { hex: '#e0702a', name: 'Orange' }, { hex: '#efbf2f', name: 'Yellow' }, { hex: '#2f7d4a', name: 'Green' },
+  { hex: '#2453a6', name: 'Blue' }, { hex: '#7a4b2a', name: 'Brown' }, { hex: '#8c8c8c', name: 'Grey' },
+];
 const BASE = 120; // text is laid out at 120 px and scaled
 const fontCss = (f: string, px = BASE) => `${FONTS[f]?.style ?? ''}${FONTS[f]?.weight ?? '400'} ${px}px "${f}"`;
 const STORE_KEY = 'wearsketch-design-v1';
@@ -48,6 +52,7 @@ export interface StudioApi {
   printFiles(): Promise<Partial<Record<Zone, Blob>>>;
   previews(): Promise<{ preview: Blob; views: Blob }>;
   showZone(z: Zone): void;
+  startNew(): void; // clears the shirt (undo brings it back)
   dispose(): void;
 }
 
@@ -85,7 +90,7 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
 
   // ---------- state ----------
   const state = {
-    colour: COLOURS[0], mode: 'draw' as Mode, ink: INKS[0], size: 12, eraser: false,
+    colour: COLOURS[0], mode: 'draw' as Mode, ink: INKS[0].hex, size: 12, eraser: false,
     objects: [] as Obj[], sel: null as number | null, dirty: true, curDraw: null as number | null,
     hideSel: false, zone: 'front' as Zone,
   };
@@ -401,7 +406,7 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
         el.style.cursor = 'grabbing';
       } else {
         if (state.mode === 'move' && h) { state.sel = null; syncSel(); dirty(); }
-        if (state.mode === 'draw' && h && !zoneAt(h.x, h.y)) toast('You can print on the marked areas: front, back and sleeves.');
+        if (state.mode === 'draw' && h && !zoneAt(h.x, h.y)) toast('Draw inside a dashed box. Only those areas get printed.');
         act = { t: 'orbit' };
         el.style.cursor = 'grabbing';
       }
@@ -557,31 +562,33 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
 
   // pen
   const inks = $('inks');
+  // pencil and eraser are one choice: exactly one of them is on
+  function setPen(eraser: boolean) {
+    state.eraser = eraser;
+    $('pencil').setAttribute('aria-pressed', String(!eraser));
+    $('eraser').setAttribute('aria-pressed', String(eraser));
+    $('penLabel').textContent = eraser ? 'Eraser' : 'Pencil';
+    setMode('draw');
+  }
   for (const c of INKS) {
     const b = document.createElement('button');
     b.className = 'ink';
-    b.style.background = c;
-    b.setAttribute('aria-label', 'Ink ' + c);
-    b.setAttribute('aria-pressed', String(c === state.ink));
+    b.style.background = c.hex;
+    b.title = c.name;
+    b.setAttribute('aria-label', c.name + ' ink');
+    b.setAttribute('aria-pressed', String(c.hex === state.ink));
     b.onclick = () => {
-      state.ink = c;
-      state.eraser = false;
-      $('eraser').setAttribute('aria-pressed', 'false');
-      $('penLabel').textContent = 'Ink';
+      state.ink = c.hex;
       inks.querySelectorAll('.ink').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-      setMode('draw');
+      setPen(false);
     };
     inks.appendChild(b);
   }
   const penSize = $<HTMLInputElement>('penSize');
   penSize.oninput = () => { state.size = +penSize.value; $('penSizeVal').textContent = state.size + ' px'; };
-  $('eraser').onclick = () => {
-    state.eraser = !state.eraser;
-    $('eraser').setAttribute('aria-pressed', String(state.eraser));
-    $('penLabel').textContent = state.eraser ? 'Eraser' : 'Ink';
-    setMode('draw');
-  };
-  $('newDrawing').onclick = () => { state.curDraw = null; setMode('draw'); toast('Your next lines start a new drawing'); };
+  // the pencil always starts a new drawing, so its lines can be moved on their own
+  $('pencil').onclick = () => { state.curDraw = null; setPen(false); };
+  $('eraser').onclick = () => setPen(true);
 
   // where a new print goes: the middle of the chosen zone, upper third on front and back
   const centre = () => {
@@ -937,8 +944,19 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
   frame();
   root.dataset.ready = 'true';
 
+  function startNew() {
+    snapshot();
+    state.objects = [];
+    state.sel = null;
+    state.curDraw = null;
+    syncSel();
+    setZone('front', true);
+    setPen(false);
+    dirty();
+  }
+
   return {
-    summary, printFiles, previews, showZone,
+    summary, printFiles, previews, showZone, startNew,
     dispose() {
       cancelAnimationFrame(raf);
       clearTimeout(saveTimer);

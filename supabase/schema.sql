@@ -58,6 +58,38 @@ create table if not exists public.reviews (
   show_on_site boolean not null default false
 );
 
+-- Cart, merchant login, pickup requests and after-sale tracking (October 2026)
+-- drop the old status and qty checks, whatever they are named, then add the new ones
+do $$
+declare r record;
+begin
+  for r in select conname from pg_constraint
+    where conrelid = 'public.orders'::regclass and contype = 'c'
+      and (pg_get_constraintdef(oid) ilike '%status%' or pg_get_constraintdef(oid) ilike '%qty%')
+  loop
+    execute format('alter table public.orders drop constraint %I', r.conname);
+  end loop;
+end $$;
+alter table public.orders add constraint orders_status_check
+  check (status in ('pending_payment','paid','sent_to_printer','printed','pickup_requested','shipped','delivered','cancelled'));
+-- qty is now the total number of shirts in the order, across all designs
+alter table public.orders add constraint orders_qty_check check (qty between 1 and 100);
+alter table public.orders add column if not exists items jsonb;
+alter table public.orders add column if not exists address_parts jsonb;
+alter table public.orders add column if not exists pickup_requested_at timestamptz;
+alter table public.orders add column if not exists status_times jsonb not null default '{}'::jsonb;
+alter table public.orders add column if not exists issue text;
+alter table public.orders add column if not exists issue_note text;
+alter table public.orders add column if not exists refund_amount int;
+alter table public.orders drop constraint if exists orders_issue_check;
+alter table public.orders add constraint orders_issue_check check (issue is null or issue in ('reprint','refund','return'));
+
+-- Merchants sign in with a login ID and a password. Existing access codes become their login ID.
+alter table public.printers add column if not exists login_id text;
+alter table public.printers add column if not exists password_hash text;
+update public.printers set login_id = access_code where login_id is null;
+create unique index if not exists printers_login_id_idx on public.printers (login_id);
+
 -- Only the server (secret key) reads or writes these tables. No public access.
 alter table public.orders enable row level security;
 alter table public.printers enable row level security;

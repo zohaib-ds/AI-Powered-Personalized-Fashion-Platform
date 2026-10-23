@@ -10,7 +10,7 @@ export default function Track() {
       <main className="wrap page-narrow">
         <p className="eyebrow">Track order</p>
         <h1>Where is my shirt?</h1>
-        <p className="lead">Enter the order number from your confirmation page and the phone number you ordered with.</p>
+        <p className="lead">Enter the order number from your confirmation page and the 10-digit mobile number you ordered with.</p>
         <TrackForm />
       </main>
       <SiteFooter />

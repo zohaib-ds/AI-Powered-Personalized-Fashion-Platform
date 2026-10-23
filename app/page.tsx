@@ -2,20 +2,20 @@ import Link from 'next/link';
 import ShirtShowcase from '@/components/ShirtShowcase';
 import { Stars } from '@/components/PrintSpec';
 import { SiteFooter, SiteHeader } from '@/components/SiteChrome';
-import { COLOURS, FONTS, ZONE_INFO, type Zone } from '@/lib/design';
-import { FROM_PRICE, PRICES, quote, rupee } from '@/lib/pricing';
+import { COLOURS, FONTS, ZONE_INFO } from '@/lib/design';
+import { FROM_PRICE, PRICES, rupee } from '@/lib/pricing';
 import { supabaseAdmin, type ReviewRow } from '@/lib/supabase-server';
 
 export const revalidate = 300;
 
-// Prices come from the same function the studio and checkout use.
-const at = (zones: Zone[]) => quote({ prints: zones.map((zone) => ({ type: 'text' as const, zone, x: 0, y: 0, wCm: 1, hCm: 1, rot: 0 })), qty: 1 }).each;
-const PRICE_ROWS: [string, number][] = [
-  ['Front only, or back only', at(['front'])],
-  ['Front and back', at(['front', 'back'])],
-  ['Front, back and one sleeve', at(['front', 'back', 'sleeveL'])],
-  ['Front, back and both sleeves', at(['front', 'back', 'sleeveL', 'sleeveR'])],
+// Prices come from the same table the studio and checkout use.
+const PRICE_ROWS: [string, string, number][] = [
+  ['1 area', 'Front, back or one sleeve', PRICES.byAreas[0]],
+  ['2 areas', 'For example front and back', PRICES.byAreas[1]],
+  ['3 areas', 'For example front, back and one sleeve', PRICES.byAreas[2]],
+  ['All 4 areas', 'Front, back and both sleeves', PRICES.byAreas[3]],
 ];
+const D = PRICES.delivery;
 
 async function publicReviews(): Promise<ReviewRow[]> {
   try {
@@ -28,13 +28,13 @@ async function publicReviews(): Promise<ReviewRow[]> {
 
 const STEPS = [
   ['Design it', `Open the studio and draw with the pen, type text in one of ${Object.keys(FONTS).length} fonts, or upload a PNG or JPG. Turn the shirt to check the front, back and sleeves. If an image is too small for the size you picked, the studio tells you before you order.`],
-  ['Order it', 'Enter a Delhi address (pincodes starting with 110). You get an order number and an order page that shows where your shirt is.'],
-  ['We print it', 'A print shop in Delhi gets a 300 DPI file for each area you designed, prints your shirt and marks it as printed.'],
-  ['Ekart delivers it', 'When the shirt ships, the Ekart tracking number appears on your order page.'],
+  ['Add it to your cart', 'Add the design to your cart, then make another one if you like. One order can hold several designs, each in its own colour and quantity.'],
+  ['We print it', 'Our print partner gets a 300 DPI file for each area you designed and prints your shirts. Your order page shows when they are printed.'],
+  ['We deliver it to your door', 'When your parcel leaves, the tracking number appears on your order page.'],
 ];
 
 const FAQ = [
-  ['Is there a minimum order?', `No. You can order one shirt. Up to ${PRICES.maxQty} shirts with the same design fit in one order.`],
+  ['Is there a minimum order?', `No. You can order a single shirt. You can also add up to ${PRICES.maxItems} different designs to one order, with up to ${PRICES.maxQty} shirts of each.`],
   ['What size is the shirt?', 'Every shirt is a free-size, relaxed fit tee for now, so there is no size to pick.'],
   ['Where can you print?', 'On the front, the back and the outside of each sleeve. We do not print on the sides of the shirt.'],
   ['What if my image is low quality?', 'The studio checks every image against the size you set it to and shows a warning if it will print soft.'],
@@ -49,16 +49,16 @@ export default async function Home() {
         <section className="hero">
           <div className="wrap hero-in">
             <div className="hero-copy">
-              <p className="eyebrow">Custom T-shirts, Delhi</p>
-              <h1>Design your <span className="nowrap">T-shirt</span> on a 3D model. <span className="hl">We print it in Delhi.</span></h1>
-              <p className="lead">Draw, add text or upload an image on the front, back and sleeves. Turn the shirt to see every side, then order a single piece. Ekart delivers it to your door.</p>
+              <p className="eyebrow">Custom T-shirts, made to order</p>
+              <h1>Design your <span className="nowrap">T-shirt</span> on a 3D model. <span className="hl">We deliver it to your door.</span></h1>
+              <p className="lead">Draw, add text or upload an image on the front, back and sleeves. Turn the shirt to see every side, then order a single shirt or several. We print each one to order.</p>
               <div className="hero-cta">
                 <Link href="/studio" className="btn primary big">Open the studio</Link>
                 <Link href="/#pricing" className="btn big">See prices</Link>
               </div>
               <dl className="hero-facts">
                 <div><dt>Price</dt><dd>From {rupee(FROM_PRICE)}</dd></div>
-                <div><dt>Delivery in Delhi</dt><dd>{rupee(PRICES.delivery)} per order</dd></div>
+                <div><dt>Delivery</dt><dd>From {rupee(D.base)}</dd></div>
                 <div><dt>Minimum order</dt><dd>1 shirt</dd></div>
               </dl>
             </div>
@@ -121,19 +121,19 @@ export default async function Home() {
                 <p className="eyebrow">Pricing</p>
                 <h2>You pay for the areas you print</h2>
               </div>
-              <p>Every price includes the shirt and the printing. The studio shows the exact price for your design before you order.</p>
+              <p>Every price includes the shirt and the printing. The price depends only on how many areas you print, and the studio shows it as you design.</p>
             </div>
             <div className="price-wrap">
               <table className="price-table">
-                <thead><tr><th>What gets printed</th><th>Per shirt</th></tr></thead>
+                <thead><tr><th>Printed areas</th><th>Per shirt</th></tr></thead>
                 <tbody>
-                  {PRICE_ROWS.map(([label, price]) => <tr key={label}><td>{label}</td><td>{rupee(price)}</td></tr>)}
+                  {PRICE_ROWS.map(([label, note, price]) => <tr key={label}><td><strong>{label}</strong><span className="muted td-note">{note}</span></td><td>{rupee(price)}</td></tr>)}
                 </tbody>
               </table>
               <ul className="price-notes">
-                <li><strong>Delivery: {rupee(PRICES.delivery)} per order</strong><span>Ekart, anywhere in Delhi. One fee however many shirts are in the order.</span></li>
+                <li><strong>Delivery: {rupee(D.base)} for up to {D.perShirts} shirts</strong><span>Then {rupee(D.step)} more for every {D.perShirts} shirts after that, for the whole order. We deliver to your door.</span></li>
                 <li><strong>Shirt: free-size tee</strong><span>Relaxed fit, in {COLOURS.length} colours.</span></li>
-                <li><strong>Quantity: 1 to {PRICES.maxQty}</strong><span>All shirts in one order carry the same design.</span></li>
+                <li><strong>Several designs in one order</strong><span>Add up to {PRICES.maxItems} designs to your cart, with up to {PRICES.maxQty} shirts of each.</span></li>
               </ul>
             </div>
           </div>
@@ -154,7 +154,7 @@ export default async function Home() {
                   <div key={r.id} className="review">
                     <Stars n={r.rating} />
                     {r.comment && <p>“{r.comment}”</p>}
-                    <div className="muted">{r.name || 'Customer'}, Delhi</div>
+                    <div className="muted">{r.name || 'Customer'}</div>
                   </div>
                 ))}
               </div>

@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
-import { COLOURS, FONTS, isDelhiPincode, shortId, ZONES, type DesignSummary, type PrintSummary } from '@/lib/design';
-import { quote } from '@/lib/pricing';
-import { PRINT_BUCKET, supabaseAdmin } from '@/lib/supabase-server';
+import { ADDRESS_FIELDS, COLOURS, FONTS, formatAddress, isDelhiPincode, isMobile, mobileDigits, shortId, ZONES, zonesUsed, type Address, type PrintSummary } from '@/lib/design';
+import { PRICES, quoteOrder } from '@/lib/pricing';
+import { PRINT_BUCKET, supabaseAdmin, type OrderItem } from '@/lib/supabase-server';
 
 const num = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
-function cleanDesign(raw: unknown): DesignSummary | null {
-  const d = raw as DesignSummary;
-  if (!d || typeof d !== 'object' || !Array.isArray(d.prints) || d.prints.length > 40) return null;
+interface CleanItem { colourId: string; qty: number; prints: PrintSummary[] }
+
+function cleanItem(raw: unknown): CleanItem | null {
+  const d = raw as CleanItem;
+  if (!d || typeof d !== 'object' || !Array.isArray(d.prints) || !d.prints.length || d.prints.length > 40) return null;
   if (!COLOURS.some((c) => c.id === d.colourId)) return null;
   const prints = d.prints.map((p): PrintSummary | null => {
     if (!p || !ZONES.includes(p.zone) || !['text', 'image', 'draw'].includes(p.type)) return null;
@@ -19,32 +21,37 @@ function cleanDesign(raw: unknown): DesignSummary | null {
     return out;
   });
   if (prints.some((p) => !p)) return null;
-  return { colourId: d.colourId, qty: Math.min(10, Math.max(1, Math.floor(Number(d.qty)) || 1)), prints: prints as PrintSummary[] };
+  return { colourId: d.colourId, qty: Math.min(PRICES.maxQty, Math.max(1, Math.floor(Number(d.qty)) || 1)), prints: prints as PrintSummary[] };
 }
 
 export async function POST(req: Request) {
-  let body: { design?: unknown; customer?: Record<string, unknown> };
+  let body: { items?: unknown; design?: unknown; customer?: Record<string, unknown> };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   }
-  const design = cleanDesign(body.design);
-  if (!design || !design.prints.length) return NextResponse.json({ error: 'Add at least one print to the shirt.' }, { status: 400 });
+  const rawItems = Array.isArray(body.items) ? body.items : body.design ? [body.design] : [];
+  if (!rawItems.length) return NextResponse.json({ error: 'Your cart is empty.' }, { status: 400 });
+  if (rawItems.length > PRICES.maxItems) return NextResponse.json({ error: `You can order up to ${PRICES.maxItems} designs at once.` }, { status: 400 });
+  const items = rawItems.map(cleanItem);
+  if (items.some((i) => !i)) return NextResponse.json({ error: 'One of the designs could not be read. Remove it from the cart and add it again.' }, { status: 400 });
+  const clean = items as CleanItem[];
 
   const c = body.customer ?? {};
-  const customer = {
-    name: str(c.name, 120), phone: str(c.phone, 20), email: str(c.email, 160) || null,
-    address: str(c.address, 600), pincode: str(c.pincode, 6),
-  };
-  if (!customer.name || !/^[0-9+ ]{10,14}$/.test(customer.phone) || !customer.address) {
-    return NextResponse.json({ error: 'Please fill in your name, phone and address.' }, { status: 400 });
-  }
-  if (!isDelhiPincode(customer.pincode)) {
-    return NextResponse.json({ error: 'We deliver in Delhi only for now (pincode starting with 110).' }, { status: 400 });
+  const raw = (c.address ?? {}) as Record<string, unknown>;
+  const address = Object.fromEntries(ADDRESS_FIELDS.map((f) => [f.key, str(raw[f.key], f.max)])) as unknown as Address;
+  address.pincode = address.pincode.replace(/\D/g, '');
+  const customer = { name: str(c.name, 120), phone: mobileDigits(str(c.phone, 20)), email: str(c.email, 160) || null };
+  if (!customer.name) return NextResponse.json({ error: 'Please enter your full name.' }, { status: 400 });
+  if (!isMobile(customer.phone)) return NextResponse.json({ error: 'Enter a 10-digit mobile number.' }, { status: 400 });
+  const missing = ADDRESS_FIELDS.find((f) => f.required && !address[f.key]);
+  if (missing) return NextResponse.json({ error: `Please fill in: ${missing.label}.` }, { status: 400 });
+  if (!isDelhiPincode(address.pincode)) {
+    return NextResponse.json({ error: 'We deliver only in Delhi for now. Enter a pincode that starts with 110.' }, { status: 400 });
   }
 
-  const q = quote(design);
+  const q = quoteOrder(clean);
   let db;
   try {
     db = supabaseAdmin();
@@ -52,28 +59,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: (e as Error).message }, { status: 503 });
   }
 
+  // signed upload links: per design, one 300 DPI PNG per print zone plus pictures of the shirt
   const id = crypto.randomUUID();
+  const uploads: Record<string, { path: string; signedUrl: string }> = {};
+  const orderItems: OrderItem[] = [];
+  for (const [i, item] of clean.entries()) {
+    const files: Record<string, string> = {};
+    for (const key of [...zonesUsed(item), 'preview', 'views']) {
+      const path = `${id}/${i + 1}/${key}.png`;
+      const { data, error } = await db.storage.from(PRINT_BUCKET).createSignedUploadUrl(path, { upsert: true });
+      if (error || !data) return NextResponse.json({ error: 'Could not prepare the file upload. Please try again.' }, { status: 500 });
+      uploads[`${i}:${key}`] = { path, signedUrl: data.signedUrl };
+      files[key] = path;
+    }
+    const iq = q.items[i];
+    orderItems.push({ colourId: item.colourId, qty: iq.qty, prints: item.prints, files, label: iq.label, each: iq.each, cost: iq.cost });
+  }
+
+  const first = orderItems[0];
   const { error } = await db.from('orders').insert({
     id, code: shortId(id),
-    customer_name: customer.name, phone: customer.phone, email: customer.email, address: customer.address, pincode: customer.pincode,
-    colour_id: design.colourId, qty: design.qty, design,
-    price: { lines: q.lines, each: q.each, subtotal: q.subtotal, shipping: q.shipping, total: q.total, cost: q.cost },
-    total: q.total, printer_cost: q.cost * q.qty,
+    customer_name: customer.name, phone: customer.phone, email: customer.email,
+    address: formatAddress(address), address_parts: address, pincode: address.pincode,
+    // the old single-design columns hold the first design so older screens still work
+    colour_id: first.colourId, qty: q.shirts, design: { colourId: first.colourId, qty: first.qty, prints: first.prints }, files: first.files,
+    items: orderItems,
+    price: { subtotal: q.subtotal, shipping: q.shipping, total: q.total, cost: q.cost },
+    total: q.total, printer_cost: q.cost,
   });
   if (error) return NextResponse.json({ error: 'Could not save the order. Please try again.' }, { status: 500 });
-
-  // signed upload links: one 300 DPI PNG per print zone, plus pictures of the shirt
-  const keys = [...ZONES.filter((z) => design.prints.some((p) => p.zone === z)), 'preview', 'views'];
-  const uploads: Record<string, { path: string; signedUrl: string }> = {};
-  const files: Record<string, string> = {};
-  for (const key of keys) {
-    const path = `${id}/${key}.png`;
-    const { data, error: upErr } = await db.storage.from(PRINT_BUCKET).createSignedUploadUrl(path, { upsert: true });
-    if (upErr || !data) return NextResponse.json({ error: 'Could not prepare file upload.' }, { status: 500 });
-    uploads[key] = { path, signedUrl: data.signedUrl };
-    files[key] = path;
-  }
-  await db.from('orders').update({ files }).eq('id', id);
 
   return NextResponse.json({ orderId: id, total: q.total, uploads });
 }

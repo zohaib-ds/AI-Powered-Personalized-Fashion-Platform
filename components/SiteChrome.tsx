@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import CartLink from './CartLink';
 import Wordmark from './Wordmark';
 import { BRAND } from '@/lib/brand';
 
@@ -13,7 +14,8 @@ export function SiteHeader() {
           <Link href="/track">Track order</Link>
           <Link href="/help">Help</Link>
         </nav>
-        <Link href="/studio" className="btn primary">Open the studio</Link>
+        <CartLink className="header-cart" />
+        <Link href="/studio" className="btn primary header-cta"><span className="xs-hide">Open the </span><span className="xs-cap">studio</span></Link>
       </div>
     </header>
   );
@@ -25,7 +27,7 @@ export function SiteFooter() {
       <div className="wrap footer-in">
         <div className="footer-brand">
           <Wordmark size={20} />
-          <p className="muted">Custom T-shirts designed in 3D, printed in {BRAND.city} and delivered by Ekart.</p>
+          <p className="muted">Custom T-shirts you design in 3D. We print them and deliver them to your door.</p>
         </div>
         <div className="footer-cols">
           <div>
@@ -36,6 +38,7 @@ export function SiteFooter() {
           </div>
           <div>
             <h4>Orders</h4>
+            <Link href="/cart">Your cart</Link>
             <Link href="/track">Track your order</Link>
             <Link href="/help">Help and FAQ</Link>
             <Link href="/policies">Shipping and reprints</Link>

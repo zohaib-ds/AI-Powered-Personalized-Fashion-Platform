@@ -17,7 +17,7 @@ export default function Privacy() {
 
         <h2>What we collect</h2>
         <ul>
-          <li><strong>When you order:</strong> your name, phone number, delivery address, pincode and, if you give it, your email address.</li>
+          <li><strong>When you order:</strong> your name, mobile number, delivery address (house number, floor, street, area, landmark, city and pincode) and, if you give it, your email address.</li>
           <li><strong>Your design:</strong> the text, drawings and images you put on the shirt, and the print files and preview pictures made from them.</li>
           <li><strong>If you leave a review:</strong> your rating, your comment and the name you enter.</li>
           <li><strong>Technical data:</strong> like any website, our hosting provider receives your IP address and browser details when you load a page.</li>
@@ -35,8 +35,8 @@ export default function Privacy() {
 
         <h2>Who we share it with</h2>
         <ul>
-          <li><strong>Our print partner in {BRAND.city}</strong> who prints your order sees your name, phone number, delivery address, the print files and your review of that order.</li>
-          <li><strong>Ekart</strong> receives your name, phone number and address to deliver the parcel.</li>
+          <li><strong>Our print partner</strong> who prints your order sees your name, phone number, delivery address, the print files and your review of that order.</li>
+          <li><strong>Our delivery partner</strong> receives your name, phone number and address to deliver the parcel.</li>
           <li><strong>Our service providers</strong> store and run the website for us: Vercel hosts the site, Supabase stores the order database and print files, and Google Fonts serves the typefaces. Their servers may be outside India.</li>
           <li><strong>A payment provider</strong>, once online payment is switched on, will process your payment. We will never see or store your full card details.</li>
         </ul>
