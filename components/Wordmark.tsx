@@ -1,11 +1,12 @@
 import { BRAND } from '@/lib/brand';
 
-// The logo when there is one, otherwise the name set in type.
-export default function Wordmark({ size = 22 }: { size?: number }) {
-  if (BRAND.logo) return <img src={BRAND.logo} alt={BRAND.name} className="wordmark-img" style={{ height: size * 1.3 }} />;
+// The logo, with the name set beside it where there is room for it.
+// `light` is the version for dark backgrounds (the footer).
+export default function Wordmark({ size = 22, name = true, light = false }: { size?: number; name?: boolean; light?: boolean }) {
   return (
     <span className="wordmark" style={{ fontSize: size }}>
-      <span>Wear</span><span className="wm-sketch">Sketch</span>
+      <img src={light ? BRAND.logoLight : BRAND.logo} alt={name ? '' : BRAND.name} className="wordmark-img" width={124} height={112} />
+      {name && <span className="wm-name"><span>Wear</span><span className="wm-sketch">Sketch</span></span>}
     </span>
   );
 }

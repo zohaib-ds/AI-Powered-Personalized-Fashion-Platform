@@ -5,6 +5,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: `${BRAND.name} · Design your own T-shirt in 3D`,
   description: 'Design a T-shirt on a 3D model: draw, add text or upload an image on the front, back and sleeves. We print it and deliver it to your door. No minimum order.',
+  openGraph: { siteName: BRAND.name, images: [{ url: '/logo.png', width: 1280, height: 1229, alt: BRAND.name }] },
 };
 
 export const viewport: Viewport = {

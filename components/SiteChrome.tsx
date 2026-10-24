@@ -26,7 +26,7 @@ export function SiteFooter() {
     <footer className="site-footer">
       <div className="wrap footer-in">
         <div className="footer-brand">
-          <Wordmark size={20} />
+          <Wordmark size={20} light />
           <p className="muted">Custom T-shirts you design in 3D. We print them and deliver them to your door.</p>
         </div>
         <div className="footer-cols">
