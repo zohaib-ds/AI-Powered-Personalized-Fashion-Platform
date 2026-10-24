@@ -4,7 +4,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: `${BRAND.name} · Design your own T-shirt in 3D`,
-  description: 'Design a T-shirt on a 3D model: draw, add text or upload an image on the front, back and sleeves. Printed in Delhi and delivered by Ekart. No minimum order.',
+  description: 'Design a T-shirt on a 3D model: draw, add text or upload an image on the front, back and sleeves. We print it and deliver it to your door. No minimum order.',
 };
 
 export const viewport: Viewport = {

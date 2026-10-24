@@ -106,3 +106,40 @@ export function isDelhiPincode(pin: string): boolean {
 }
 
 export const shortId = (id: string) => id.slice(0, 8).toUpperCase();
+
+// Indian mobile numbers: exactly 10 digits, starting with 6, 7, 8 or 9.
+export const isMobile = (v: string) => /^[6-9]\d{9}$/.test(v);
+// The 10 digits of an Indian mobile number from whatever was typed or pasted: "+91 98765 43210", "098765 43210", "9876543210".
+export function mobileDigits(v: string): string {
+  let d = v.replace(/\D/g, '');
+  if (d.length > 10 && d.startsWith('91')) d = d.slice(2);
+  else if (d.length > 10 && d.startsWith('0')) d = d.slice(1);
+  return d.slice(0, 10);
+}
+
+// The delivery address, asked field by field so the courier can find the door.
+export interface Address {
+  house: string; // house or flat number
+  floor: string; // optional
+  building: string; // building, street or gali
+  area: string; // area, colony or sector
+  landmark: string; // optional
+  city: string;
+  pincode: string;
+}
+
+export const ADDRESS_FIELDS: { key: keyof Address; label: string; required: boolean; max: number; placeholder?: string }[] = [
+  { key: 'house', label: 'House or flat number', required: true, max: 40, placeholder: 'e.g. B-24' },
+  { key: 'floor', label: 'Floor (optional)', required: false, max: 30, placeholder: 'e.g. 2nd floor' },
+  { key: 'building', label: 'Building, street or gali', required: true, max: 120 },
+  { key: 'area', label: 'Area, colony or sector', required: true, max: 120 },
+  { key: 'landmark', label: 'Landmark (optional)', required: false, max: 120, placeholder: 'e.g. near the metro station' },
+  { key: 'city', label: 'City', required: true, max: 60 },
+  { key: 'pincode', label: 'Pincode', required: true, max: 6 },
+];
+
+// One line for labels and old screens: "B-24, 2nd floor, Rose Apartments, Lajpat Nagar, near the metro station, City"
+export function formatAddress(a: Partial<Address>): string {
+  const landmark = a.landmark ? (/^(near|opp|opposite|behind|next to)\b/i.test(a.landmark) ? a.landmark : `near ${a.landmark}`) : '';
+  return [a.house, a.floor, a.building, a.area, landmark, a.city].map((s) => (s ?? '').trim()).filter(Boolean).join(', ');
+}

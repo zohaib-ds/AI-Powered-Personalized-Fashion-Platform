@@ -3,8 +3,8 @@
 export const BRAND = {
   name: 'WearSketch',
   logo: null as string | null,
-  tagline: 'Sketch it in 3D. We print it in Delhi.',
-  city: 'Delhi',
+  tagline: 'Sketch it in 3D. We print it and deliver it to your door.',
+  city: 'Delhi', // the only delivery area for now; shown only at checkout
   email: '', // support email shown on the help page, e.g. 'hello@yourdomain.com'
   whatsapp: '', // e.g. '919876543210' to show a WhatsApp button on the help page
 };

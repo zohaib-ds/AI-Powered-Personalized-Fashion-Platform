@@ -3,6 +3,8 @@ import { SiteFooter, SiteHeader } from '@/components/SiteChrome';
 import { BRAND } from '@/lib/brand';
 import { PRICES, rupee } from '@/lib/pricing';
 
+const D = PRICES.delivery;
+
 export const metadata = { title: `Shipping and reprints · ${BRAND.name}` };
 
 export default function Policies() {
@@ -15,7 +17,7 @@ export default function Policies() {
         <p className="updated">Last updated 19 October 2026</p>
 
         <h2 id="shipping">Shipping</h2>
-        <p>We deliver within {BRAND.city} (pincodes starting with 110) through Ekart, for {rupee(PRICES.delivery)} per order. Each shirt is printed to order by a print partner in {BRAND.city} and then handed to Ekart. Your order page shows each step, and the Ekart tracking number once the parcel ships.</p>
+        <p>We deliver to your door in the areas we serve, which we show at checkout before you pay. Delivery costs {rupee(D.base)} for an order of up to {D.perShirts} shirts, plus {rupee(D.step)} for every further {D.perShirts} shirts. Each shirt is printed to order by our print partner and then handed to our delivery partner. Your order page shows each step, and the tracking number once the parcel ships.</p>
 
         <h2 id="cancel">Cancellations</h2>
         <p>You can cancel for a full refund until the printer starts on your order. After that the shirt is being made for you and cannot be cancelled.</p>

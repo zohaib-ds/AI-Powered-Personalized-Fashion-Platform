@@ -2,18 +2,18 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ReviewForm from '@/components/ReviewForm';
 import { SiteFooter, SiteHeader } from '@/components/SiteChrome';
-import { COLOURS, ZONE_INFO, zonesUsed } from '@/lib/design';
+import { COLOURS } from '@/lib/design';
 import { rupee } from '@/lib/pricing';
-import { JOURNEY, signedLinks, STATUS_LABEL, supabaseAdmin, type OrderRow, type ReviewRow } from '@/lib/supabase-server';
+import { addressText, JOURNEY, journeyIndex, orderItems, signedLinks, STATUS_LABEL, supabaseAdmin, type OrderRow, type ReviewRow } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Your order · WearSketch', robots: { index: false } };
 
 const STEP_TEXT: Record<string, string> = {
   paid: 'Order placed',
-  sent_to_printer: 'Printing in Delhi',
+  sent_to_printer: 'Printing',
   printed: 'Printed',
-  shipped: 'On the way with Ekart',
+  shipped: 'On the way',
   delivered: 'Delivered',
 };
 
@@ -27,10 +27,10 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const o = data as OrderRow;
   const { data: rv } = await db.from('reviews').select('*').eq('order_id', id).maybeSingle();
   const review = rv as ReviewRow | null;
-  const links = await signedLinks(db, [o.files.preview, o.files.views].filter(Boolean));
-  const colour = COLOURS.find((c) => c.id === o.colour_id);
-  const at = JOURNEY.indexOf(o.status);
-  const canReview = ['printed', 'shipped', 'delivered'].includes(o.status);
+  const items = orderItems(o);
+  const links = await signedLinks(db, items.flatMap((it) => [it.files.views, it.files.preview]).filter(Boolean));
+  const at = journeyIndex(o.status);
+  const canReview = ['printed', 'pickup_requested', 'shipped', 'delivered'].includes(o.status);
   const code = o.code ?? o.id.slice(0, 8).toUpperCase();
 
   return (
@@ -40,7 +40,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
         <div className="order-hero">
           <div>
             <p className="eyebrow">Order #{code}</p>
-            <h1>{o.status === 'pending_payment' ? 'Your order is waiting for payment' : o.status === 'cancelled' ? 'This order was cancelled' : fresh ? 'Thank you. Your order is in.' : STEP_TEXT[o.status] ?? STATUS_LABEL[o.status]}</h1>
+            <h1>{o.status === 'pending_payment' ? 'Your order is waiting for payment' : o.status === 'cancelled' ? 'This order was cancelled' : fresh ? 'Thank you. Your order is in.' : STEP_TEXT[JOURNEY[at]] ?? STATUS_LABEL[o.status]}</h1>
             <p className="muted">Keep this page. It updates as your shirt is printed and shipped. You can also find it any time from <Link href="/track">Track order</Link> with #{code} and your phone number.</p>
           </div>
         </div>
@@ -51,27 +51,34 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
               <li key={s} className={i < at ? 'done' : i === at ? 'now' : ''}>
                 <span className="j-dot" />
                 <span className="j-text">{STEP_TEXT[s]}</span>
-                {s === 'shipped' && o.tracking && i <= at && <span className="j-sub">Ekart tracking {o.tracking}</span>}
+                {s === 'shipped' && o.tracking && i <= at && <span className="j-sub">Tracking {o.tracking}</span>}
               </li>
             ))}
           </ol>
         )}
 
         <div className="order-cols">
-          <div className="card flush">
-            {o.files.views && links[o.files.views] ? <img className="views" src={links[o.files.views]} alt="Your shirt from four sides" />
-              : o.files.preview && links[o.files.preview] ? <img className="views" src={links[o.files.preview]} alt="Your shirt" /> : null}
-          </div>
+          {items.map((it, i) => {
+            const colour = COLOURS.find((c) => c.id === it.colourId);
+            const pic = (it.files.views && links[it.files.views]) || (it.files.preview && links[it.files.preview]);
+            return (
+              <div key={i} className="card flush order-item">
+                {pic ? <img className="views" src={pic} alt={`Design ${i + 1} from four sides`} /> : null}
+                <div className="oi-body">
+                  <strong>{items.length > 1 ? `Design ${i + 1}: ` : ''}{colour?.name} free-size tee × {it.qty}</strong>
+                  <span className="muted">{it.label}{it.each ? `, ${rupee(it.each)} each` : ''}</span>
+                </div>
+              </div>
+            );
+          })}
           <div className="card">
-            <h3>Your shirt</h3>
+            <h3>Your order</h3>
             <table className="kv"><tbody>
-              <tr><td>Shirt</td><td>{colour?.name} free-size tee × {o.qty}</td></tr>
-              <tr><td>Printed on</td><td>{zonesUsed(o.design).map((z) => ZONE_INFO[z].label).join(', ')}</td></tr>
-              {o.price.lines.map((l) => <tr key={l.label}><td>{l.label}</td><td>{rupee(l.amount)}</td></tr>)}
-              {o.qty > 1 && <tr><td>× {o.qty} shirts</td><td>{rupee(o.price.subtotal)}</td></tr>}
-              <tr><td>Ekart delivery</td><td>{rupee(o.price.shipping)}</td></tr>
+              <tr><td>Shirts</td><td>{o.qty}</td></tr>
+              <tr><td>Shirts total</td><td>{rupee(o.price.subtotal)}</td></tr>
+              <tr><td>Delivery</td><td>{rupee(o.price.shipping)}</td></tr>
               <tr className="total"><td>Total</td><td>{rupee(o.total)}{o.payment_ref?.startsWith('SAMPLE') ? ' (test payment)' : ''}</td></tr>
-              <tr><td>Deliver to</td><td>{o.customer_name}, {o.address}, Delhi {o.pincode}</td></tr>
+              <tr><td>Deliver to</td><td>{o.customer_name}, {addressText(o)}, {o.pincode}</td></tr>
             </tbody></table>
           </div>
         </div>
@@ -88,7 +95,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
 
         <div className="card">
           <h3>Need help?</h3>
-          <p className="muted">Something wrong with the print or the size? See <Link href="/help">Help</Link> or our <Link href="/policies">reprint policy</Link>. Mention order #{code}.</p>
+          <p className="muted">Something wrong with the print or the shirt? See <Link href="/help">Help</Link> or our <Link href="/policies">reprint policy</Link>. Mention order #{code}.</p>
         </div>
       </main>
       <SiteFooter />
