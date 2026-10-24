@@ -24,7 +24,8 @@ export default function Policies() {
 
         <h2 id="reprints">Reprints and refunds</h2>
         <p>Every shirt is made for one customer, so we cannot take a shirt back because you changed your mind about the design.</p>
-        <p>If something is wrong on our side, such as a misprint, a print in the wrong place, a stain or a damaged shirt, tell us within 7 days of delivery. Send a photo and your order number. We will reprint it for free or refund you.</p>
+        <p>If something is wrong on our side, such as a misprint, a print in the wrong place, a stain or a damaged shirt, tell us within 7 days of delivery. Send a photo and your order number. We will reprint it for free or refund you. The same goes if we send a different size from the one you ordered.</p>
+        <p>Please check the size before you order. The chest size for each size is shown when you add a design to your cart. Because the shirt is printed for you, we cannot swap it for another size if the size you picked does not fit.</p>
 
         <h2 id="designs">Your designs</h2>
         <p>Only upload images and text you have the right to use. See section 4 of our <Link href="/terms">terms and conditions</Link>.</p>

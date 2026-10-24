@@ -3,7 +3,7 @@ import PortalHeader from '@/components/PortalHeader';
 import PrinterLogin from '@/components/PrinterLogin';
 import { Stars } from '@/components/PrintSpec';
 import { average, formatHours, hoursBetween, weekLabel, weekly } from '@/lib/analytics';
-import { COLOURS, ZONE_INFO, zonesUsed } from '@/lib/design';
+import { COLOURS, sizeShort, ZONE_INFO, zonesUsed } from '@/lib/design';
 import { currentPrinter } from '@/lib/printer-auth';
 import { rupee } from '@/lib/pricing';
 import { orderItems, orderPreview, signedLinks, STATUS_LABEL, supabaseAdmin, type OrderRow, type OrderStatus, type ReviewRow } from '@/lib/supabase-server';
@@ -87,7 +87,7 @@ export default async function PrinterHome({ searchParams }: { searchParams: Prom
                   <div className="row between"><strong>#{o.code ?? o.id.slice(0, 8).toUpperCase()}</strong><span className={`status s-${o.status}`}>{STATUS_LABEL[o.status]}</span></div>
                   {items.map((it, i) => {
                     const colour = COLOURS.find((c) => c.id === it.colourId);
-                    return <div key={i} className="muted"><span className="swatch-dot sm" style={{ background: colour?.hex }} /> {colour?.name} × {it.qty} · {zonesUsed(it).map((z) => ZONE_INFO[z].short).join(', ')}</div>;
+                    return <div key={i} className="muted"><span className="swatch-dot sm" style={{ background: colour?.hex }} /> {colour?.name}, {sizeShort(it.size)} × {it.qty} · {zonesUsed(it).map((z) => ZONE_INFO[z].short).join(', ')}</div>;
                   })}
                   <div className="row between muted">
                     <span>{new Date(o.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span>

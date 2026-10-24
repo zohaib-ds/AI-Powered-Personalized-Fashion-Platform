@@ -1,6 +1,6 @@
 import 'server-only';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { formatAddress, type Address, type DesignSummary, type PrintSummary } from './design';
+import { formatAddress, type Address, type DesignSummary, type PrintSummary, type SizeId } from './design';
 
 export const PRINT_BUCKET = 'print-files';
 
@@ -44,6 +44,7 @@ export const ISSUE_LABEL: Record<OrderIssue, string> = { reprint: 'Reprint', ref
 // One design in an order: its shirt colour, how many, the prints and the uploaded files.
 export interface OrderItem {
   colourId: string;
+  size?: SizeId; // missing on orders from before sizes: free size
   qty: number;
   prints: PrintSummary[];
   files: Record<string, string>; // zone → 300 DPI PNG, plus preview and views

@@ -17,7 +17,7 @@ export default function Terms() {
         <p>These terms apply when you use the {BRAND.name} website or order a shirt from us. By placing an order you agree to them. Please also read our <Link href="/privacy">privacy policy</Link> and our <Link href="/policies">shipping and reprint policy</Link>.</p>
 
         <h2>1. What we sell</h2>
-        <p>{BRAND.name} lets you design a T-shirt in the online studio. Each shirt is printed to order by our print partner and delivered to your door by our delivery partner. For now we offer one free-size tee, and we deliver only to the areas shown at checkout.</p>
+        <p>{BRAND.name} lets you design a T-shirt in the online studio. Each shirt is printed to order by our print partner and delivered to your door by our delivery partner. For now we offer one style of tee in the sizes shown in the studio, and we deliver only to the areas shown at checkout.</p>
 
         <h2>2. Prices and payment</h2>
         <p>Prices are in Indian rupees. The studio and the checkout show the full price before you order: the price per shirt, which depends on the areas you print, plus delivery: {rupee(PRICES.delivery.base)} for up to {PRICES.delivery.perShirts} shirts and {rupee(PRICES.delivery.step)} more for every further {PRICES.delivery.perShirts} shirts in the order. The price shown when you place the order is the price you pay.</p>

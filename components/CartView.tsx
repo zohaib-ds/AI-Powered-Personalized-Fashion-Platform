@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { cartItems, clearCart, removeFromCart, setCartQty, type CartItem } from '@/lib/cart';
-import { ADDRESS_FIELDS, COLOURS, isDelhiPincode, isMobile, mobileDigits, type Address } from '@/lib/design';
+import { cartItems, clearCart, copyCartItem, removeFromCart, setCartQty, setCartSize, type CartItem } from '@/lib/cart';
+import { ADDRESS_FIELDS, COLOURS, isDelhiPincode, isMobile, isSize, mobileDigits, SIZES, type Address } from '@/lib/design';
 import { PRICES, quoteOrder, rupee } from '@/lib/pricing';
 
 interface CreateResponse {
@@ -48,6 +48,15 @@ export default function CartView() {
     await setCartQty(it.id, qty);
     await load();
   }
+  async function changeSize(it: CartItem, v: string) {
+    if (!isSize(v)) return;
+    await setCartSize(it.id, v);
+    await load();
+  }
+  async function copy(it: CartItem) {
+    await copyCartItem(it.id);
+    await load();
+  }
   async function remove(it: CartItem) {
     await removeFromCart(it.id);
     await load();
@@ -73,7 +82,7 @@ export default function CartView() {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ items: items.map((i) => ({ colourId: i.colourId, qty: i.qty, prints: i.prints })), customer }),
+        body: JSON.stringify({ items: items.map((i) => ({ colourId: i.colourId, size: i.size ?? 'free', qty: i.qty, prints: i.prints })), customer }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not create the order.');
@@ -123,9 +132,17 @@ export default function CartView() {
                 <div className="ci-img">{previews[it.id] ? <img src={previews[it.id]} alt={`Design ${i + 1}`} /> : null}</div>
                 <div className="ci-main">
                   <strong>Design {i + 1}</strong>
-                  <span className="muted">{colour?.name ?? it.colourId} free-size tee</span>
-                  <span className="muted">{iq.label}, {rupee(iq.each)} each</span>
-                  <button className="link-btn" onClick={() => remove(it)} disabled={!!busy}>Remove</button>
+                  <span className="muted">{colour?.name ?? it.colourId} tee · {iq.label}, {rupee(iq.each)} each</span>
+                  <label className="ci-size">
+                    <span>Size</span>
+                    <select value={it.size ?? 'free'} onChange={(e) => changeSize(it, e.target.value)} disabled={!!busy || step === 'details'} aria-label={`Size of design ${i + 1}`}>
+                      {SIZES.map((s) => <option key={s.id} value={s.id}>{s.id === 'free' ? s.label : `${s.label} (${s.fit.toLowerCase()})`}</option>)}
+                    </select>
+                  </label>
+                  <span className="ci-links">
+                    {step === 'cart' && items.length < PRICES.maxItems && <button className="link-btn" onClick={() => copy(it)} disabled={!!busy}>Add another size</button>}
+                    <button className="link-btn" onClick={() => remove(it)} disabled={!!busy}>Remove</button>
+                  </span>
                 </div>
                 <div className="qty" role="group" aria-label={`Quantity of design ${i + 1}`}>
                   <button onClick={() => changeQty(it, it.qty - 1)} aria-label="One less" disabled={!!busy || step === 'details'}>−</button>

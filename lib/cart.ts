@@ -1,12 +1,13 @@
 // The shopping cart lives in the browser (IndexedDB), because each design carries
 // its print files: one 300 DPI PNG per print area plus two pictures of the shirt.
 // Nothing is sent to the server until checkout.
-import type { PrintSummary } from './design';
+import type { PrintSummary, SizeId } from './design';
 
 export interface CartItem {
   id: string;
   addedAt: number;
   colourId: string;
+  size?: SizeId; // missing on items added before sizes existed: free size
   qty: number;
   prints: PrintSummary[];
   files: Record<string, Blob>; // zone → print file, plus preview and views
@@ -46,6 +47,21 @@ export async function cartItems(): Promise<CartItem[]> {
 export async function addToCart(item: Omit<CartItem, 'id' | 'addedAt'>): Promise<void> {
   const full: CartItem = { ...item, id: crypto.randomUUID(), addedAt: Date.now() };
   await run('readwrite', (s) => s.put(full));
+  changed();
+}
+
+export async function setCartSize(id: string, size: SizeId): Promise<void> {
+  const it = (await cartItems()).find((i) => i.id === id);
+  if (!it) return;
+  await run('readwrite', (s) => s.put({ ...it, size }));
+  changed();
+}
+
+// the same design again as its own line, so one design can be ordered in several sizes
+export async function copyCartItem(id: string): Promise<void> {
+  const it = (await cartItems()).find((i) => i.id === id);
+  if (!it) return;
+  await run('readwrite', (s) => s.put({ ...it, id: crypto.randomUUID(), addedAt: Date.now(), qty: 1 }));
   changed();
 }
 

@@ -35,7 +35,7 @@ const STEPS = [
 
 const FAQ = [
   ['Is there a minimum order?', `No. You can order a single shirt. You can also add up to ${PRICES.maxItems} different designs to one order, with up to ${PRICES.maxQty} shirts of each.`],
-  ['What size is the shirt?', 'Every shirt is a free-size, relaxed fit tee for now, so there is no size to pick.'],
+  ['What sizes do you have?', 'S, M, L, XL and XXL, plus a free size with a relaxed fit. You pick the size when you add your design to the cart, and every size costs the same.'],
   ['Where can you print?', 'On the front, the back and the outside of each sleeve. We do not print on the sides of the shirt.'],
   ['What if my image is low quality?', 'The studio checks every image against the size you set it to and shows a warning if it will print soft.'],
 ];
@@ -132,7 +132,7 @@ export default async function Home() {
               </table>
               <ul className="price-notes">
                 <li><strong>Delivery: {rupee(D.base)} for up to {D.perShirts} shirts</strong><span>Then {rupee(D.step)} more for every {D.perShirts} shirts after that, for the whole order. We deliver to your door.</span></li>
-                <li><strong>Shirt: free-size tee</strong><span>Relaxed fit, in {COLOURS.length} colours.</span></li>
+                <li><strong>Sizes S to XXL, or free size</strong><span>Same price for every size, in {COLOURS.length} colours.</span></li>
                 <li><strong>Several designs in one order</strong><span>Add up to {PRICES.maxItems} designs to your cart, with up to {PRICES.maxQty} shirts of each.</span></li>
               </ul>
             </div>

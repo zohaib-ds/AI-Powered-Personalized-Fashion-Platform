@@ -68,6 +68,25 @@ export const COLOURS: Colour[] = [
   { id: 'pink', name: 'Pink', hex: '#efb2c4' },
 ];
 
+// Shirt sizes. Every size costs the same. Chest is the body measurement each size suits.
+export type SizeId = 'free' | 'S' | 'M' | 'L' | 'XL' | 'XXL';
+export const SIZES: { id: SizeId; label: string; fit: string }[] = [
+  { id: 'free', label: 'Free size', fit: 'Relaxed fit that suits most people' },
+  { id: 'S', label: 'S', fit: 'Chest 36 to 38 in' },
+  { id: 'M', label: 'M', fit: 'Chest 38 to 40 in' },
+  { id: 'L', label: 'L', fit: 'Chest 40 to 42 in' },
+  { id: 'XL', label: 'XL', fit: 'Chest 42 to 44 in' },
+  { id: 'XXL', label: 'XXL', fit: 'Chest 44 to 46 in' },
+];
+export const isSize = (v: unknown): v is SizeId => SIZES.some((s) => s.id === v);
+export const sizeShort = (size?: string) => (!size || size === 'free' ? 'Free size' : size);
+
+// "White free-size tee" or "Black tee, size M". Orders from before sizes were free size.
+export function shirtName(colourId: string, size?: string): string {
+  const colour = COLOURS.find((c) => c.id === colourId)?.name ?? colourId;
+  return !size || size === 'free' ? `${colour} free-size tee` : `${colour} tee, size ${size}`;
+}
+
 export const FONTS: Record<string, { weight: string; style: string }> = {
   Anton: { weight: '400', style: '' },
   'Bebas Neue': { weight: '400', style: '' },
@@ -95,6 +114,7 @@ export interface PrintSummary {
 
 export interface DesignSummary {
   colourId: string;
+  size?: SizeId;
   qty: number;
   prints: PrintSummary[];
 }

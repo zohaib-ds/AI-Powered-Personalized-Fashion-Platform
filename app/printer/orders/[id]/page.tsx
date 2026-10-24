@@ -47,7 +47,7 @@ export default async function PrinterOrder({ params }: { params: Promise<{ id: s
               <section key={i} className="card">
                 <h3>{items.length > 1 ? `Design ${i + 1} of ${items.length}` : 'The design'}</h3>
                 {it.files.views && links[it.files.views] && <img className="views spec-views" src={links[it.files.views]} alt={`Design ${i + 1} from the front, left, back and right`} />}
-                <PrintSpec design={{ colourId: it.colourId, qty: it.qty, prints: it.prints }} files={it.files} links={links} />
+                <PrintSpec design={{ colourId: it.colourId, size: it.size, qty: it.qty, prints: it.prints }} files={it.files} links={links} />
               </section>
             ))}
           </div>
