@@ -44,8 +44,8 @@ npm run dev
 
 | What | File |
 | --- | --- |
-| Brand name, logo, support email and WhatsApp | `lib/brand.ts` (logo file goes in `public/`) |
-| Favicon | `app/icon.svg`, `app/favicon.ico`, `app/apple-icon.png` |
+| Brand name, support email and WhatsApp | `lib/brand.ts` |
+| Logo and favicon | `public/logo.png` is the original. The site uses smaller copies made from it: `public/logo-mark.png`, `public/logo-mark-light.png` (for the dark footer), `app/icon.png`, `app/favicon.ico`, `app/apple-icon.png`. Remake them if the logo changes. |
 | Colours, fonts, layout | `app/globals.css` (flat colours, square corners, no shadows or gradients) |
 | Prices (₹359, 409, 439, 459 by number of print areas), delivery (₹49, plus ₹30 for every 4 shirts after the first 4), printer rates | `lib/pricing.ts` |
 | Shirt colours, fonts, print area sizes | `lib/design.ts` |

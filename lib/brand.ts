@@ -1,8 +1,10 @@
-// When the logo is ready, put the file in /public (for example /public/logo.svg)
-// and set `logo` to its path. Until then a wordmark is drawn from `name`.
+// The logo files in /public are small copies of /public/logo.png made for the site:
+// logo-mark.png for light backgrounds and logo-mark-light.png (white arrow) for dark ones.
+// The favicons are app/icon.png, app/favicon.ico and app/apple-icon.png.
 export const BRAND = {
   name: 'WearSketch',
-  logo: null as string | null,
+  logo: '/logo-mark.png',
+  logoLight: '/logo-mark-light.png',
   tagline: 'Sketch it in 3D. We print it and deliver it to your door.',
   city: 'Delhi', // the only delivery area for now; shown only at checkout
   email: '', // support email shown on the help page, e.g. 'hello@yourdomain.com'
