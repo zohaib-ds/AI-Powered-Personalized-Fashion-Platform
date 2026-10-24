@@ -40,12 +40,22 @@ export async function updateOrder(form: FormData) {
 }
 
 export interface Credentials { name: string; loginId: string; password: string }
+export type CredentialsResult = Credentials | { error: string } | null;
+
+// Turns a database error into a line the admin can act on.
+function saveError(e: { code?: string; message?: string }) {
+  if (e.code === '42703' || e.code === 'PGRST204' || /column/i.test(e.message ?? '')) {
+    return 'The database is missing the login columns. In Supabase, open SQL Editor, paste all of supabase/schema.sql and click Run, then try again.';
+  }
+  return `Could not save: ${e.message ?? 'unknown database error'}`;
+}
 
 // Adds a merchant and shows their login ID and password once. Only a hash of the password is stored.
-export async function createPrinter(_prev: Credentials | null, form: FormData): Promise<Credentials | null> {
+export async function createPrinter(_prev: CredentialsResult, form: FormData): Promise<CredentialsResult> {
   const name = text(form, 'name', 120);
-  if (!name) return null;
+  if (!name) return { error: 'Type the merchant name first.' };
   const db = supabaseAdmin();
+  let last: { code?: string; message?: string } = {};
   for (let tries = 0; tries < 5; tries++) {
     const loginId = newLoginId();
     const password = newPassword();
@@ -56,21 +66,25 @@ export async function createPrinter(_prev: Credentials | null, form: FormData): 
       revalidatePath('/admin');
       return { name, loginId, password };
     }
+    last = error;
+    // Only a clash with an existing login ID is worth another try.
+    if (error.code !== '23505') break;
   }
-  return null;
+  return { error: saveError(last) };
 }
 
 // Makes a new password for a merchant (and signs them out everywhere).
-export async function resetPrinterPassword(_prev: Credentials | null, form: FormData): Promise<Credentials | null> {
+export async function resetPrinterPassword(_prev: CredentialsResult, form: FormData): Promise<CredentialsResult> {
   const id = String(form.get('id') || '');
-  if (!isId(id)) return null;
+  if (!isId(id)) return { error: 'Merchant not found.' };
   const db = supabaseAdmin();
-  const { data } = await db.from('printers').select('name,login_id,access_code').eq('id', id).single();
-  if (!data) return null;
+  const { data, error: readError } = await db.from('printers').select('name,login_id,access_code').eq('id', id).single();
+  if (readError) return { error: saveError(readError) };
+  if (!data) return { error: 'Merchant not found.' };
   const loginId = data.login_id ?? data.access_code;
   const password = newPassword();
   const { error } = await db.from('printers').update({ password_hash: hashPassword(password), login_id: loginId }).eq('id', id);
-  if (error) return null;
+  if (error) return { error: saveError(error) };
   revalidatePath('/admin');
   return { name: data.name, loginId, password };
 }
