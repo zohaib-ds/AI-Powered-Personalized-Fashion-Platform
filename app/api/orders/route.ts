@@ -1,17 +1,18 @@
 import { NextResponse } from 'next/server';
-import { ADDRESS_FIELDS, COLOURS, FONTS, formatAddress, isDelhiPincode, isMobile, mobileDigits, shortId, ZONES, zonesUsed, type Address, type PrintSummary } from '@/lib/design';
+import { ADDRESS_FIELDS, COLOURS, FONTS, formatAddress, isDelhiPincode, isMobile, isSize, mobileDigits, shortId, ZONES, zonesUsed, type Address, type PrintSummary, type SizeId } from '@/lib/design';
 import { PRICES, quoteOrder } from '@/lib/pricing';
 import { PRINT_BUCKET, supabaseAdmin, type OrderItem } from '@/lib/supabase-server';
 
 const num = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
-interface CleanItem { colourId: string; qty: number; prints: PrintSummary[] }
+interface CleanItem { colourId: string; size: SizeId; qty: number; prints: PrintSummary[] }
 
 function cleanItem(raw: unknown): CleanItem | null {
   const d = raw as CleanItem;
   if (!d || typeof d !== 'object' || !Array.isArray(d.prints) || !d.prints.length || d.prints.length > 40) return null;
   if (!COLOURS.some((c) => c.id === d.colourId)) return null;
+  if (d.size !== undefined && !isSize(d.size)) return null;
   const prints = d.prints.map((p): PrintSummary | null => {
     if (!p || !ZONES.includes(p.zone) || !['text', 'image', 'draw'].includes(p.type)) return null;
     if (!num(p.x, -40, 40) || !num(p.y, -40, 40) || !num(p.wCm, 0, 300) || !num(p.hCm, 0, 300) || !num(p.rot, -360, 360)) return null;
@@ -21,7 +22,7 @@ function cleanItem(raw: unknown): CleanItem | null {
     return out;
   });
   if (prints.some((p) => !p)) return null;
-  return { colourId: d.colourId, qty: Math.min(PRICES.maxQty, Math.max(1, Math.floor(Number(d.qty)) || 1)), prints: prints as PrintSummary[] };
+  return { colourId: d.colourId, size: d.size ?? 'free', qty: Math.min(PRICES.maxQty, Math.max(1, Math.floor(Number(d.qty)) || 1)), prints: prints as PrintSummary[] };
 }
 
 export async function POST(req: Request) {
@@ -73,7 +74,7 @@ export async function POST(req: Request) {
       files[key] = path;
     }
     const iq = q.items[i];
-    orderItems.push({ colourId: item.colourId, qty: iq.qty, prints: item.prints, files, label: iq.label, each: iq.each, cost: iq.cost });
+    orderItems.push({ colourId: item.colourId, size: item.size, qty: iq.qty, prints: item.prints, files, label: iq.label, each: iq.each, cost: iq.cost });
   }
 
   const first = orderItems[0];

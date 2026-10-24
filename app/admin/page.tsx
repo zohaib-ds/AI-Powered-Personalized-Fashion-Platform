@@ -3,7 +3,7 @@ import { AddMerchantForm, ResetPasswordForm } from '@/components/AdminForms';
 import PortalHeader from '@/components/PortalHeader';
 import PrintSpec, { Stars } from '@/components/PrintSpec';
 import { weekLabel, weekly } from '@/lib/analytics';
-import { COLOURS } from '@/lib/design';
+import { COLOURS, SIZES } from '@/lib/design';
 import { rupee } from '@/lib/pricing';
 import {
   addressText, ISSUE_LABEL, orderItems, orderPreview, signedLinks, STATUS_LABEL, supabaseAdmin,
@@ -49,6 +49,8 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
   const weekMargin = (start: number) => sold.filter((o) => weekly([o], 8).some((w) => w.start === start && w.orders)).reduce((s, o) => s + marginOf(o), 0);
   const colours = COLOURS.map((c) => [c.name, sold.reduce((s, o) => s + orderItems(o).filter((it) => it.colourId === c.id).reduce((n, it) => n + it.qty, 0), 0)] as const)
     .filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+  const sizes = SIZES.map((z) => [z.label, sold.reduce((s, o) => s + orderItems(o).filter((it) => (it.size ?? 'free') === z.id).reduce((n, it) => n + it.qty, 0), 0)] as const)
+    .filter(([, n]) => n > 0);
 
   const shown = tab === 'orders' ? orders.filter((o) => !filter || o.status === filter).slice(0, 150) : [];
   const links = tab === 'orders' ? await signedLinks(db, shown.flatMap((o) => orderItems(o).flatMap((it) => Object.values(it.files ?? {})))) : {};
@@ -119,12 +121,18 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
                 </table>
               </div>
               <div className="card">
-                <h3>Shirt colours sold</h3>
+                <h3>Colours and sizes sold</h3>
                 {colours.length ? (
-                  <table className="data-table">
-                    <thead><tr><th>Colour</th><th>Shirts</th></tr></thead>
-                    <tbody>{colours.map(([name, n]) => <tr key={name}><td>{name}</td><td>{n}</td></tr>)}</tbody>
-                  </table>
+                  <>
+                    <table className="data-table">
+                      <thead><tr><th>Colour</th><th>Shirts</th></tr></thead>
+                      <tbody>{colours.map(([name, n]) => <tr key={name}><td>{name}</td><td>{n}</td></tr>)}</tbody>
+                    </table>
+                    <table className="data-table">
+                      <thead><tr><th>Size</th><th>Shirts</th></tr></thead>
+                      <tbody>{sizes.map(([name, n]) => <tr key={name}><td>{name}</td><td>{n}</td></tr>)}</tbody>
+                    </table>
+                  </>
                 ) : <p className="muted">No sales yet.</p>}
               </div>
             </div>
@@ -160,7 +168,7 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
                         <section key={i} className="ao-item">
                           {items.length > 1 && <h4>Design {i + 1} of {items.length}</h4>}
                           {it.files.views && links[it.files.views] && <img className="views" src={links[it.files.views]} alt={`Design ${i + 1} from four sides`} />}
-                          <PrintSpec design={{ colourId: it.colourId, qty: it.qty, prints: it.prints }} files={it.files} links={links} />
+                          <PrintSpec design={{ colourId: it.colourId, size: it.size, qty: it.qty, prints: it.prints }} files={it.files} links={links} />
                         </section>
                       ))}
                     </div>

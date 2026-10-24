@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ReviewForm from '@/components/ReviewForm';
 import { SiteFooter, SiteHeader } from '@/components/SiteChrome';
-import { COLOURS } from '@/lib/design';
+import { shirtName } from '@/lib/design';
 import { rupee } from '@/lib/pricing';
 import { addressText, JOURNEY, journeyIndex, orderItems, signedLinks, STATUS_LABEL, supabaseAdmin, type OrderRow, type ReviewRow } from '@/lib/supabase-server';
 
@@ -59,13 +59,12 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
 
         <div className="order-cols">
           {items.map((it, i) => {
-            const colour = COLOURS.find((c) => c.id === it.colourId);
             const pic = (it.files.views && links[it.files.views]) || (it.files.preview && links[it.files.preview]);
             return (
               <div key={i} className="card flush order-item">
                 {pic ? <img className="views" src={pic} alt={`Design ${i + 1} from four sides`} /> : null}
                 <div className="oi-body">
-                  <strong>{items.length > 1 ? `Design ${i + 1}: ` : ''}{colour?.name} free-size tee × {it.qty}</strong>
+                  <strong>{items.length > 1 ? `Design ${i + 1}: ` : ''}{shirtName(it.colourId, it.size)} × {it.qty}</strong>
                   <span className="muted">{it.label}{it.each ? `, ${rupee(it.each)} each` : ''}</span>
                 </div>
               </div>

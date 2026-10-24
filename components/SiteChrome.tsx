@@ -15,7 +15,7 @@ export function SiteHeader() {
           <Link href="/help">Help</Link>
         </nav>
         <CartLink className="header-cart" />
-        <Link href="/studio" className="btn primary header-cta"><span className="xs-hide">Open the </span><span className="xs-cap">studio</span></Link>
+        <Link href="/studio" className="btn primary header-cta"><span className="xs-hide">Open the studio</span><span className="xs-show">Studio</span></Link>
       </div>
     </header>
   );

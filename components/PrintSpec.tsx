@@ -1,4 +1,4 @@
-import { COLOURS, ZONE_INFO, ZONES, type DesignSummary } from '@/lib/design';
+import { COLOURS, shirtName, ZONE_INFO, ZONES, type DesignSummary } from '@/lib/design';
 
 // Everything a printer needs to print one order: per zone, the file, its size
 // and what is on it. Used by the printer portal and the admin page.
@@ -9,7 +9,7 @@ export default function PrintSpec({ design, files, links }: { design: DesignSumm
       <div className="spec-shirt">
         <span className="swatch-dot" style={{ background: colour?.hex }} />
         <div>
-          <strong>{colour?.name ?? design.colourId} free-size tee × {design.qty}</strong>
+          <strong>{shirtName(design.colourId, design.size)} × {design.qty}</strong>
           <div className="muted">Same print on every piece</div>
         </div>
       </div>

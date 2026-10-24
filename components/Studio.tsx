@@ -5,7 +5,7 @@ import Link from 'next/link';
 import CartLink from './CartLink';
 import Wordmark from './Wordmark';
 import { addToCart } from '@/lib/cart';
-import { ZONE_INFO, ZONES, type Zone } from '@/lib/design';
+import { SIZES, ZONE_INFO, ZONES, type SizeId, type Zone } from '@/lib/design';
 import { FROM_PRICE, PRICES, quoteItem, rupee } from '@/lib/pricing';
 import type { StudioApi, StudioChange } from '@/lib/studio/engine';
 
@@ -29,6 +29,9 @@ export default function Studio() {
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [size, setSize] = useState<SizeId | null>(null);
+  const [addedSize, setAddedSize] = useState<SizeId | null>(null);
+  const sizeDialog = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     let gone = false;
@@ -57,16 +60,24 @@ export default function Studio() {
   const designKey = design ? design.colour.id + JSON.stringify(design.prints) : '';
   useEffect(() => { setAdded(false); }, [designKey]);
 
+  // the size is asked for when the design is finished, just before it goes in the cart
+  function askSize() {
+    setAddError(null);
+    sizeDialog.current?.showModal();
+  }
+
   async function add() {
     const now = api.current?.summary();
-    if (!api.current || !now || !now.prints.length) return;
+    if (!api.current || !now || !now.prints.length || !size) return;
+    sizeDialog.current?.close();
     setAdding(true);
     setAddError(null);
     try {
       const zoneFiles = await api.current.printFiles();
       const files: Record<string, Blob> = { ...(await api.current.previews()) };
       for (const [z, blob] of Object.entries(zoneFiles)) if (blob) files[z] = blob;
-      await addToCart({ colourId: now.colour.id, qty, prints: now.prints, files });
+      await addToCart({ colourId: now.colour.id, size, qty, prints: now.prints, files });
+      setAddedSize(size);
       setAdded(true);
       setQty(1);
     } catch (e) {
@@ -230,7 +241,8 @@ export default function Studio() {
           {addError && <div className="err" role="alert">{addError}</div>}
           {added ? (
             <div className="added" role="status">
-              <p><strong>Added to your cart.</strong> Change the shirt to make another design, or check out.</p>
+              <p><strong>Added to your cart{addedSize ? `, ${SIZES.find((s) => s.id === addedSize)?.label}` : ''}.</strong> Change the shirt to make another design, or check out.</p>
+              <button className="link-btn" onClick={askSize}>Add this design in another size</button>
               <div className="order-act">
                 <button className="btn" onClick={() => { api.current?.startNew(); }}>Start a new design</button>
                 <Link href="/cart" className="btn primary">Go to cart</Link>
@@ -243,7 +255,7 @@ export default function Studio() {
                 <span aria-live="polite">{qty}</span>
                 <button onClick={() => setQty((n) => Math.min(PRICES.maxQty, n + 1))} aria-label="One more">+</button>
               </div>
-              <button className="btn primary big" disabled={!prints.length || state !== 'ready' || adding} onClick={add}>
+              <button className="btn primary big" disabled={!prints.length || state !== 'ready' || adding} onClick={askSize}>
                 {adding ? 'Adding…' : prints.length ? `Add to cart · ${rupee(q.subtotal)}` : 'Add to cart'}
               </button>
             </div>
@@ -251,6 +263,24 @@ export default function Studio() {
         </div>
       </aside>
 
+      <dialog ref={sizeDialog} className="notice-dialog size-dialog" aria-labelledby="sizeTitle">
+        <h2 id="sizeTitle">Pick a size</h2>
+        <div className="size-grid" role="radiogroup" aria-label="Shirt size">
+          {SIZES.map((s) => (
+            <button key={s.id} data-size={s.id} role="radio" aria-checked={size === s.id} className={s.id === 'free' ? 'size-free' : ''} onClick={() => setSize(s.id)}>
+              <strong>{s.label}</strong>
+              <span>{s.fit}</span>
+            </button>
+          ))}
+        </div>
+        <p className="muted">Every size costs the same. To order this design in more than one size, add it once for each size.</p>
+        <div className="co-actions">
+          <button className="btn ghost" onClick={() => sizeDialog.current?.close()}>Back to design</button>
+          <button className="btn primary" disabled={!size || adding} onClick={add}>
+            {qty > 1 ? `Add ${qty} to cart` : 'Add to cart'} · {rupee(q.subtotal)}
+          </button>
+        </div>
+      </dialog>
     </div>
   );
 }
