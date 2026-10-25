@@ -1,12 +1,20 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { BRAND } from '@/lib/brand';
 import { COLOURS, ZONE_INFO } from '@/lib/design';
 
 // The 3D shirt on the home page, wearing a sample design in two inks.
 const PICKS = ['white', 'black', 'heather-grey', 'navy', 'red', 'forest'];
 
-function paintSample(ctx: CanvasRenderingContext2D, dark: boolean) {
+const loadImage = (src: string) => new Promise<HTMLImageElement | null>((done) => {
+  const img = new Image();
+  img.onload = () => done(img);
+  img.onerror = () => done(null);
+  img.src = src;
+});
+
+function paintSample(ctx: CanvasRenderingContext2D, dark: boolean, logo: HTMLImageElement | null) {
   const ink = dark ? '#f4f4f1' : '#1e1d1b';
   const red = dark ? '#e8775a' : '#b8391a';
   const f = ZONE_INFO.front, b = ZONE_INFO.back, sl = ZONE_INFO.sleeveL;
@@ -45,12 +53,12 @@ function paintSample(ctx: CanvasRenderingContext2D, dark: boolean) {
   ctx.font = '700 40px "IBM Plex Mono"';
   ctx.fillStyle = red;
   ctx.fillText('MADE TO ORDER', bx, b.y + 400);
-  // sleeve badge
-  ctx.fillStyle = red;
-  ctx.fillRect(sl.x + sl.w / 2 - 50, sl.y + sl.h / 2 - 50, 100, 100);
-  ctx.fillStyle = '#fff';
-  ctx.font = '400 54px "Bebas Neue"';
-  ctx.fillText('WS', sl.x + sl.w / 2, sl.y + sl.h / 2 + 3);
+  // sleeve: the WearSketch logo, fitted inside the print box
+  if (logo) {
+    const k = Math.min((sl.w * 0.9) / logo.width, (sl.h * 0.9) / logo.height);
+    const w = logo.width * k, h = logo.height * k;
+    ctx.drawImage(logo, sl.x + (sl.w - w) / 2, sl.y + (sl.h - h) / 2, w, h);
+  }
   ctx.restore();
 }
 
@@ -67,6 +75,8 @@ export default function ShirtShowcase() {
       const [{ createShirtScene, loadShirtGeometry, paintFabric, hexLum }, { TEX }] = await Promise.all([import('@/lib/studio/shirt'), import('@/lib/design')]);
       const geo = await loadShirtGeometry();
       await Promise.all(['400 84px "Permanent Marker"', '400 64px "Bebas Neue"', '400 150px "Anton"', '700 40px "IBM Plex Mono"'].map((f) => document.fonts.load(f).catch(() => {})));
+      // the logo with a black arrow for light shirts, and the light-arrow copy for dark ones
+      const [logo, logoLight] = await Promise.all([loadImage(BRAND.logo), loadImage(BRAND.logoLight)]);
       if (gone || !host.current) return;
       const tex = document.createElement('canvas');
       tex.width = tex.height = TEX;
@@ -75,7 +85,8 @@ export default function ShirtShowcase() {
       const paint = (id: string) => {
         const hex = COLOURS.find((c) => c.id === id)!.hex;
         paintFabric(ctx, hex);
-        paintSample(ctx, hexLum(hex) < 0.45);
+        const dark = hexLum(hex) < 0.45;
+        paintSample(ctx, dark, dark ? logoLight : logo);
         S.texture.needsUpdate = true;
         S.setColor(hex);
       };
