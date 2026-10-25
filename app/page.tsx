@@ -4,9 +4,12 @@ import { Stars } from '@/components/PrintSpec';
 import { SiteFooter, SiteHeader } from '@/components/SiteChrome';
 import { COLOURS, FONTS, ZONE_INFO } from '@/lib/design';
 import { FROM_PRICE, PRICES, rupee } from '@/lib/pricing';
+import { BRAND } from '@/lib/brand';
+import { siteUrl } from '@/lib/site';
 import { supabaseAdmin, type ReviewRow } from '@/lib/supabase-server';
 
 export const revalidate = 300;
+export const metadata = { alternates: { canonical: '/' } };
 
 // Prices come from the same table the studio and checkout use.
 const PRICE_ROWS: [string, string, number][] = [
@@ -40,16 +43,29 @@ const FAQ = [
   ['What if my image is low quality?', 'The studio checks every image against the size you set it to and shows a warning if it will print soft.'],
 ];
 
+// Tells Google the site's name and logo, so a search for the brand finds it.
+function brandData() {
+  const url = siteUrl();
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      { '@type': 'Organization', '@id': `${url}/#org`, name: BRAND.name, url, logo: `${url}/logo.png`, ...(BRAND.email ? { email: BRAND.email } : {}) },
+      { '@type': 'WebSite', '@id': `${url}/#site`, name: BRAND.name, url, publisher: { '@id': `${url}/#org` } },
+    ],
+  };
+}
+
 export default async function Home() {
   const reviews = await publicReviews();
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(brandData()).replace(/</g, '\\u003c') }} />
       <SiteHeader />
       <main>
         <section className="hero">
           <div className="wrap hero-in">
             <div className="hero-copy">
-              <p className="eyebrow">Custom T-shirts, made to order</p>
+              <p className="eyebrow">{BRAND.name} · custom T-shirts, made to order</p>
               <h1>Design your <span className="nowrap">T-shirt</span> on a 3D model. <span className="hl">We deliver it to your door.</span></h1>
               <p className="lead">Draw, add text or upload an image on the front, back and sleeves. Turn the shirt to see every side, then order a single shirt or several. We print each one to order.</p>
               <div className="hero-cta">

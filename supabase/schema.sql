@@ -90,10 +90,36 @@ alter table public.printers add column if not exists password_hash text;
 update public.printers set login_id = access_code where login_id is null;
 create unique index if not exists printers_login_id_idx on public.printers (login_id);
 
+-- Merchant account details, Shiprocket pickups and withdrawals (October 2026)
+alter table public.printers add column if not exists address text;
+alter table public.printers add column if not exists city text;
+alter table public.printers add column if not exists pincode text;
+alter table public.printers add column if not exists account_name text;
+alter table public.printers add column if not exists account_number text;
+alter table public.printers add column if not exists ifsc text;
+alter table public.printers add column if not exists upi_id text;
+alter table public.printers add column if not exists shiprocket_pickup text;
+alter table public.orders add column if not exists shiprocket jsonb;
+
+-- A merchant asks to withdraw what they earned; the admin pays it and marks it paid.
+create table if not exists public.payouts (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  printer_id uuid references public.printers (id) on delete set null,
+  printer_name text not null,
+  amount int not null check (amount > 0),
+  pay_to text,
+  status text not null default 'requested' check (status in ('requested','paid','rejected')),
+  reference text,
+  paid_at timestamptz
+);
+create index if not exists payouts_printer_idx on public.payouts (printer_id, created_at desc);
+
 -- Only the server (secret key) reads or writes these tables. No public access.
 alter table public.orders enable row level security;
 alter table public.printers enable row level security;
 alter table public.reviews enable row level security;
+alter table public.payouts enable row level security;
 
 -- Print files: private bucket, the server hands out signed upload/download links.
 insert into storage.buckets (id, name, public)

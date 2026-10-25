@@ -5,7 +5,7 @@ import { PRICES, rupee } from '@/lib/pricing';
 
 const D = PRICES.delivery;
 
-export const metadata = { title: `Shipping and reprints · ${BRAND.name}` };
+export const metadata = { title: `Shipping and reprints · ${BRAND.name}`, description: 'WearSketch shipping, cancellation, reprint and refund policy.', alternates: { canonical: '/policies' } };
 
 export default function Policies() {
   return (
@@ -14,7 +14,7 @@ export default function Policies() {
       <main className="wrap page-narrow prose">
         <p className="eyebrow">Policies</p>
         <h1>Shipping, cancellations and reprints</h1>
-        <p className="updated">Last updated 19 October 2026</p>
+        <p className="updated">Last updated 25 October 2026</p>
 
         <h2 id="shipping">Shipping</h2>
         <p>We deliver to your door in the areas we serve, which we show at checkout before you pay. Delivery costs {rupee(D.base)} for an order of up to {D.perShirts} shirts, plus {rupee(D.step)} for every further {D.perShirts} shirts. Each shirt is printed to order by our print partner and then handed to our delivery partner. Your order page shows each step, and the tracking number once the parcel ships.</p>
@@ -24,7 +24,8 @@ export default function Policies() {
 
         <h2 id="reprints">Reprints and refunds</h2>
         <p>Every shirt is made for one customer, so we cannot take a shirt back because you changed your mind about the design.</p>
-        <p>If something is wrong on our side, such as a misprint, a print in the wrong place, a stain or a damaged shirt, tell us within 7 days of delivery. Send a photo and your order number. We will reprint it for free or refund you. The same goes if we send a different size from the one you ordered.</p>
+        <p>If something is wrong on our side, such as a misprint, a print in the wrong place, a stain or a damaged shirt, tell us within 3 days of delivery. Send a photo, the video of you opening the parcel and your order number. We will reprint it for free or refund you. The same goes if we send a different size from the one you ordered.</p>
+        <p id="unboxing">Please record a video while you open the parcel, from the sealed package to the shirt. We need it to check a claim for a damaged, missing or wrong item, and we may not be able to accept such a claim without it.</p>
         <p>Please check the size before you order. The chest size for each size is shown when you add a design to your cart. Because the shirt is printed for you, we cannot swap it for another size if the size you picked does not fit.</p>
 
         <h2 id="designs">Your designs</h2>

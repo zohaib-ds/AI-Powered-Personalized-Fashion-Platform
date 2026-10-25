@@ -4,7 +4,7 @@ import { BRAND } from '@/lib/brand';
 import { COLOURS, FONTS, SIZES, ZONE_INFO } from '@/lib/design';
 import { FROM_PRICE, PRICES, rupee } from '@/lib/pricing';
 
-export const metadata = { title: `Help and FAQ · ${BRAND.name}` };
+export const metadata = { title: `Help and FAQ · ${BRAND.name}`, description: 'Answers about designing, sizes, prices, delivery, tracking, reprints and refunds at WearSketch.', alternates: { canonical: '/help' } };
 
 const D = PRICES.delivery;
 
@@ -27,7 +27,8 @@ const GROUPS: [string, [string, React.ReactNode][]][] = [
     ['How do I track my order?', <>Your order page updates at every step: placed, printing, printed, on the way and delivered. Once the parcel leaves, its tracking number is shown there too. If you lose the link, open <Link href="/track">Track order</Link> and enter your order number and the mobile number you ordered with.</>],
   ]],
   ['Problems', [
-    ['My print came out wrong. What can I do?', <>If something is wrong on our side, such as a misprint, a print in the wrong place, a stain or a damaged shirt, tell us within 7 days of delivery. Send a photo and your order number, and we will print it again for free or refund you. The details are in our <Link href="/policies">reprint policy</Link>.</>],
+    ['My print came out wrong. What can I do?', <>If something is wrong on our side, such as a misprint, a print in the wrong place, a stain or a damaged shirt, tell us within 3 days of delivery. Send a photo, the video of you opening the parcel and your order number, and we will print it again for free or refund you. The details are in our <Link href="/policies">reprint policy</Link>.</>],
+    ['Why should I record a video when I open my parcel?', <>Please record a video while you open the parcel, from the sealed package to the shirt. If anything is damaged, missing or wrong, the video lets us check it quickly. We may not be able to accept such a claim without it. See our <Link href="/policies#unboxing">reprint policy</Link>.</>],
     ['Can I cancel my order?', 'Yes, for a full refund, as long as the printer has not started on it. Once printing has started, your shirt is being made only for you, so we cannot cancel it.'],
     ['I typed the wrong address or phone number', 'Contact us as soon as possible with your order number and the correct details. If the parcel has not left yet, we will correct it before it ships.'],
   ]],

@@ -1,26 +1,22 @@
-import Link from 'next/link';
 import PortalHeader from '@/components/PortalHeader';
 import PrinterLogin from '@/components/PrinterLogin';
-import { Stars } from '@/components/PrintSpec';
-import { average, formatHours, hoursBetween, weekLabel, weekly } from '@/lib/analytics';
+import PrintSpec from '@/components/PrintSpec';
+import { AccountForm, PickupButton, WithdrawForm } from '@/components/MerchantForms';
+import Tabs from '@/components/Tabs';
 import { COLOURS, sizeShort, ZONE_INFO, zonesUsed } from '@/lib/design';
+import { merchantMoney, WITHDRAW_EVERY_DAYS } from '@/lib/payouts';
 import { currentPrinter } from '@/lib/printer-auth';
 import { rupee } from '@/lib/pricing';
-import { orderItems, orderPreview, signedLinks, STATUS_LABEL, supabaseAdmin, type OrderRow, type OrderStatus, type ReviewRow } from '@/lib/supabase-server';
+import { orderItems, orderPreview, payTo, signedLinks, supabaseAdmin, type OrderRow, type PayoutRow } from '@/lib/supabase-server';
 import { printerLogout } from './actions';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Merchant portal · WearSketch', robots: { index: false } };
 
-const TABS: { key: string; label: string; statuses: OrderStatus[] }[] = [
-  { key: 'todo', label: 'To print', statuses: ['paid', 'sent_to_printer'] },
-  { key: 'ready', label: 'Printed', statuses: ['printed'] },
-  { key: 'pickup', label: 'Pickup requested', statuses: ['pickup_requested'] },
-  { key: 'shipped', label: 'Shipped', statuses: ['shipped'] },
-  { key: 'done', label: 'Delivered', statuses: ['delivered'] },
-];
+const fmt = (d: string | number) => new Date(d).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+const day = (d: number) => new Date(d).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'long' });
 
-export default async function PrinterHome({ searchParams }: { searchParams: Promise<{ s?: string }> }) {
+export default async function PrinterHome({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const sp = await searchParams;
   const printer = await currentPrinter().catch(() => null);
   if (!printer) {
@@ -32,27 +28,116 @@ export default async function PrinterHome({ searchParams }: { searchParams: Prom
     );
   }
 
-  const tab = TABS.find((t) => t.key === sp.s) ?? TABS[0];
   const db = supabaseAdmin();
-  const { data } = await db.from('orders').select('*').eq('printer_id', printer.id).order('created_at', { ascending: false }).limit(500);
-  const all = ((data ?? []) as OrderRow[]).filter((o) => o.status !== 'pending_payment' && o.status !== 'cancelled');
-  const ids = all.map((o) => o.id);
-  const { data: rv } = ids.length ? await db.from('reviews').select('*').in('order_id', ids) : { data: [] };
-  const reviews = (rv ?? []) as ReviewRow[];
-  const byOrder = Object.fromEntries(reviews.map((r) => [r.order_id, r]));
+  const [{ data: od }, { data: yd }] = await Promise.all([
+    db.from('orders').select('*').eq('printer_id', printer.id).in('status', ['paid', 'sent_to_printer', 'printed', 'pickup_requested', 'shipped', 'delivered']).order('created_at', { ascending: true }).limit(1000),
+    db.from('payouts').select('*').eq('printer_id', printer.id).order('created_at', { ascending: false }),
+  ]);
+  const all = (od ?? []) as OrderRow[];
+  const payouts = (yd ?? []) as PayoutRow[];
+  const toPrint = all.filter((o) => ['paid', 'sent_to_printer', 'printed'].includes(o.status));
+  const waiting = all.filter((o) => o.status === 'pickup_requested');
+  const done = all.filter((o) => o.status === 'delivered');
+  const links = await signedLinks(db, [...toPrint, ...waiting].flatMap((o) => orderItems(o).flatMap((it) => Object.values(it.files ?? {}))));
+  const money = merchantMoney(all, payouts);
+  const payDetails = payTo(printer);
+  const blocked = !payDetails ? 'Add your UPI ID or bank account in the Account tab first.'
+    : money.available <= 0 ? 'Nothing to withdraw yet. You earn your rate when an order is delivered.'
+    : !money.canNow ? `You can withdraw again on ${day(money.nextAt)}.` : null;
 
-  const list = all.filter((o) => tab.statuses.includes(o.status));
-  const links = await signedLinks(db, list.map(orderPreview).filter((p): p is string => !!p));
-  const avg = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
+  const ordersPanel = (
+    <>
+      {!printer.address && <div className="warn">Add your shop address in the Account tab so the courier knows where to collect from.</div>}
+      <h2 className="list-h">To print ({toPrint.length})</h2>
+      {!toPrint.length && <div className="card empty">No orders to print right now.</div>}
+      {toPrint.map((o) => {
+        const items = orderItems(o);
+        const pic = orderPreview(o);
+        return (
+          <div key={o.id} className="card m-order">
+            <div className="m-order-top">
+              <span className="m-thumb">{pic && links[pic] ? <img src={links[pic]} alt="" /> : null}</span>
+              <div className="m-what">
+                <strong>Order #{o.code ?? o.id.slice(0, 8).toUpperCase()}</strong>
+                {items.map((it, i) => {
+                  const colour = COLOURS.find((c) => c.id === it.colourId);
+                  return <div key={i}><span className="swatch-dot sm" style={{ background: colour?.hex }} /> {colour?.name} shirt, size {sizeShort(it.size)}, {it.qty} piece{it.qty > 1 ? 's' : ''}. Print on {zonesUsed(it).map((z) => ZONE_INFO[z].label.toLowerCase()).join(', ')}.</div>;
+                })}
+                <div className="muted">Ordered {fmt(o.created_at)} · your rate {rupee(o.printer_cost ?? 0)}</div>
+                {o.notes && <div className="note-line">Note from WearSketch: {o.notes}</div>}
+              </div>
+            </div>
+            <details className="more">
+              <summary>Print files</summary>
+              {items.map((it, i) => (
+                <section key={i} className="ao-item">
+                  {items.length > 1 && <h4>Design {i + 1} of {items.length}</h4>}
+                  {it.files.views && links[it.files.views] && <img className="views spec-views" src={links[it.files.views]} alt={`Design ${i + 1} from the front, left, back and right`} />}
+                  <PrintSpec design={{ colourId: it.colourId, size: it.size, qty: it.qty, prints: it.prints }} files={it.files} links={links} />
+                </section>
+              ))}
+            </details>
+            <PickupButton id={o.id} />
+          </div>
+        );
+      })}
 
-  // analysis
-  const delivered = all.filter((o) => o.status === 'delivered');
-  const earned = delivered.reduce((s, o) => s + (o.printer_cost ?? 0), 0);
-  const pending = all.filter((o) => o.status !== 'delivered').reduce((s, o) => s + (o.printer_cost ?? 0), 0);
-  const shirts = all.reduce((s, o) => s + o.qty, 0);
-  const weeks = weekly(all);
-  const toPrinted = average(all.map((o) => hoursBetween(o.status_times?.sent_to_printer ?? o.status_times?.paid, o.status_times?.printed)));
-  const stars = [5, 4, 3, 2, 1].map((n) => [n, reviews.filter((r) => r.rating === n).length] as const);
+      {waiting.length > 0 && (
+        <>
+          <h2 className="list-h">Waiting for the courier ({waiting.length})</h2>
+          {waiting.map((o) => {
+            const sr = o.shiprocket;
+            return (
+              <div key={o.id} className="card m-wait">
+                <div>
+                  <strong>Order #{o.code}</strong> · {o.qty} piece{o.qty > 1 ? 's' : ''}
+                  <div className="muted">
+                    {sr?.awb ? <>Courier {sr.courier ?? ''} booked, tracking {sr.awb}. Print the label and stick it on the parcel.</> : 'WearSketch is booking the courier. Keep the parcel packed and ready.'}
+                  </div>
+                </div>
+                {sr?.label_url && <a className="btn primary" href={sr.label_url} target="_blank" rel="noreferrer">Download label</a>}
+              </div>
+            );
+          })}
+        </>
+      )}
+    </>
+  );
+
+  const moneyPanel = (
+    <>
+      <div className="stats">
+        <div className="stat"><span className="stat-n">{done.length}</span><span className="stat-l">Orders completed</span></div>
+        <div className="stat"><span className="stat-n">{rupee(money.earned)}</span><span className="stat-l">Earned on delivered orders</span></div>
+        <div className="stat"><span className="stat-n">{rupee(money.paid)}</span><span className="stat-l">Paid to you</span></div>
+        <div className="stat"><span className="stat-n">{rupee(money.available)}</span><span className="stat-l">Ready to withdraw</span></div>
+      </div>
+      <div className="card stack">
+        <h3>Withdraw money</h3>
+        <p className="muted">You can withdraw once every {WITHDRAW_EVERY_DAYS} days. We send it to {payDetails ?? 'the UPI ID or bank account in your Account tab'}.</p>
+        <WithdrawForm amount={money.available > 0 ? rupee(money.available) : null} blocked={blocked} />
+      </div>
+      {payouts.length > 0 && (
+        <div className="card">
+          <h3>Your withdrawals</h3>
+          <table className="data-table">
+            <thead><tr><th>Asked on</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody>{payouts.map((p) => (
+              <tr key={p.id}><td>{fmt(p.created_at)}</td><td>{rupee(p.amount)}</td><td>{p.status === 'paid' ? `Paid${p.reference ? `, ref ${p.reference}` : ''}` : p.status === 'rejected' ? 'Not paid, call WearSketch' : 'Waiting'}</td></tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+
+  const account = (
+    <>
+      <p className="muted">Your login ID is <code className="access">{printer.login_id ?? printer.access_code}</code></p>
+      {/* only the fields the form shows: never send the password hash to the browser */}
+      <AccountForm p={{ phone: printer.phone, address: printer.address, city: printer.city, pincode: printer.pincode, account_name: printer.account_name, account_number: printer.account_number, ifsc: printer.ifsc, upi_id: printer.upi_id }} />
+    </>
+  );
 
   return (
     <>
@@ -61,81 +146,18 @@ export default async function PrinterHome({ searchParams }: { searchParams: Prom
         <div className="portal-head">
           <div>
             <h1>Hi, {printer.name}</h1>
-            <p className="muted">{printer.area ? `${printer.area} · ` : ''}Every order here is paid. Open an order, download the print files and print the shirts. When they are packed, tap Request pickup.</p>
+            <p className="muted">Print the orders below. When an order is printed and packed, tap Printing done, request pickup.</p>
           </div>
         </div>
-        <div className="stats">
-          {TABS.map((t) => (
-            <Link key={t.key} href={`/printer?s=${t.key}`} className={`stat${t.key === tab.key ? ' on' : ''}`}>
-              <span className="stat-n">{all.filter((o) => t.statuses.includes(o.status)).length}</span>
-              <span className="stat-l">{t.label}</span>
-            </Link>
-          ))}
-        </div>
-
-        <h2 className="list-h">{tab.label}</h2>
-        {!list.length && <div className="card empty">Nothing here right now.</div>}
-        <div className="order-grid">
-          {list.map((o) => {
-            const items = orderItems(o);
-            const pic = orderPreview(o);
-            const r = byOrder[o.id];
-            return (
-              <Link key={o.id} href={`/printer/orders/${o.id}`} className="order-card">
-                <div className="oc-img">{pic && links[pic] ? <img src={links[pic]} alt="" /> : null}</div>
-                <div className="oc-body">
-                  <div className="row between"><strong>#{o.code ?? o.id.slice(0, 8).toUpperCase()}</strong><span className={`status s-${o.status}`}>{STATUS_LABEL[o.status]}</span></div>
-                  {items.map((it, i) => {
-                    const colour = COLOURS.find((c) => c.id === it.colourId);
-                    return <div key={i} className="muted"><span className="swatch-dot sm" style={{ background: colour?.hex }} /> {colour?.name}, {sizeShort(it.size)} × {it.qty} · {zonesUsed(it).map((z) => ZONE_INFO[z].short).join(', ')}</div>;
-                  })}
-                  <div className="row between muted">
-                    <span>{new Date(o.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span>
-                    {r ? <Stars n={r.rating} size={12} /> : <span>{o.pincode}</span>}
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-
-        <h2 className="list-h">Your numbers</h2>
-        <div className="analysis">
-          <table className="kv"><tbody>
-            <tr><td>Orders so far</td><td>{all.length} ({shirts} shirts)</td></tr>
-            <tr><td>Earned on delivered orders</td><td>{rupee(earned)}</td></tr>
-            <tr><td>Still to be delivered</td><td>{rupee(pending)}</td></tr>
-            <tr><td>Average time to print</td><td>{formatHours(toPrinted)}</td></tr>
-            <tr><td>Average rating</td><td>{reviews.length ? <>{avg.toFixed(1)} from {reviews.length} review{reviews.length > 1 ? 's' : ''}</> : 'No reviews yet'}</td></tr>
-          </tbody></table>
-          <div>
-            <table className="data-table">
-              <thead><tr><th>Week from</th><th>Orders</th><th>Shirts</th><th>Your rate</th></tr></thead>
-              <tbody>{weeks.map((w) => <tr key={w.start}><td>{weekLabel(w.start)}</td><td>{w.orders}</td><td>{w.shirts}</td><td>{rupee(w.cost)}</td></tr>)}</tbody>
-            </table>
-            {reviews.length > 0 && (
-              <table className="data-table">
-                <thead><tr><th>Rating</th><th>Reviews</th></tr></thead>
-                <tbody>{stars.map(([n, c]) => <tr key={n}><td><Stars n={n} size={12} /></td><td>{c}</td></tr>)}</tbody>
-              </table>
-            )}
-          </div>
-        </div>
-
-        <h2 className="list-h">Customer reviews</h2>
-        {!reviews.length && <div className="card empty">Reviews show up here when customers rate the shirts you printed.</div>}
-        <div className="reviews">
-          {reviews.slice().sort((a, b) => b.created_at.localeCompare(a.created_at)).map((r) => {
-            const o = all.find((x) => x.id === r.order_id);
-            return (
-              <div key={r.id} className="review">
-                <div className="row between"><Stars n={r.rating} /><Link href={`/printer/orders/${r.order_id}`} className="muted">#{o?.code}</Link></div>
-                {r.comment && <p>“{r.comment}”</p>}
-                <div className="muted">{r.name || 'Customer'} · {new Date(r.created_at).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}</div>
-              </div>
-            );
-          })}
-        </div>
+        <Tabs
+          initial={sp.tab ?? 'orders'}
+          tabs={[
+            { key: 'orders', label: `Orders (${toPrint.length})` },
+            { key: 'money', label: 'Money' },
+            { key: 'account', label: 'Account' },
+          ]}
+          panels={{ orders: ordersPanel, money: moneyPanel, account }}
+        />
       </div>
     </>
   );

@@ -3,7 +3,7 @@ import Contact from '@/components/Contact';
 import { SiteFooter, SiteHeader } from '@/components/SiteChrome';
 import { BRAND } from '@/lib/brand';
 
-export const metadata = { title: `Privacy policy · ${BRAND.name}` };
+export const metadata = { title: `Privacy policy · ${BRAND.name}`, alternates: { canonical: '/privacy' } };
 
 export default function Privacy() {
   return (

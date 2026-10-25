@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ReviewForm from '@/components/ReviewForm';
 import { SiteFooter, SiteHeader } from '@/components/SiteChrome';
+import UnboxingNotice from '@/components/UnboxingNotice';
 import { shirtName } from '@/lib/design';
 import { rupee } from '@/lib/pricing';
 import { addressText, JOURNEY, journeyIndex, orderItems, signedLinks, STATUS_LABEL, supabaseAdmin, type OrderRow, type ReviewRow } from '@/lib/supabase-server';
@@ -36,6 +37,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   return (
     <>
       <SiteHeader />
+      {fresh && o.status !== 'pending_payment' && o.status !== 'cancelled' && <UnboxingNotice orderId={o.id} />}
       <main className="wrap page-narrow">
         <div className="order-hero">
           <div>

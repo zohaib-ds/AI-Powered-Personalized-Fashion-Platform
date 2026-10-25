@@ -1,11 +1,23 @@
 import type { Metadata, Viewport } from 'next';
 import { BRAND } from '@/lib/brand';
+import { siteUrl } from '@/lib/site';
 import './globals.css';
 
+const DESCRIPTION = `${BRAND.name}: design your own custom T-shirt on a 3D model. Draw, add text or upload an image on the front, back and sleeves. We print it and deliver it to your door. No minimum order.`;
+
 export const metadata: Metadata = {
-  title: `${BRAND.name} · Design your own T-shirt in 3D`,
-  description: 'Design a T-shirt on a 3D model: draw, add text or upload an image on the front, back and sleeves. We print it and deliver it to your door. No minimum order.',
-  openGraph: { siteName: BRAND.name, images: [{ url: '/logo.png', width: 1280, height: 1229, alt: BRAND.name }] },
+  metadataBase: new URL(siteUrl()),
+  title: `${BRAND.name} · Design your own custom T-shirt in 3D`,
+  description: DESCRIPTION,
+  applicationName: BRAND.name,
+  keywords: [BRAND.name, 'WearSketch India', 'custom T-shirt', 'design your own T-shirt', 'T-shirt printing', '3D T-shirt design', 'personalised T-shirt'],
+  openGraph: {
+    type: 'website', locale: 'en_IN', siteName: BRAND.name, title: `${BRAND.name} · Design your own custom T-shirt in 3D`, description: DESCRIPTION,
+    images: [{ url: '/logo.png', width: 1280, height: 1229, alt: BRAND.name }],
+  },
+  twitter: { card: 'summary', title: BRAND.name, description: DESCRIPTION, images: ['/logo.png'] },
+  // the code from Google Search Console > Add property > HTML tag, set as GOOGLE_SITE_VERIFICATION in Vercel
+  verification: process.env.GOOGLE_SITE_VERIFICATION ? { google: process.env.GOOGLE_SITE_VERIFICATION } : undefined,
 };
 
 export const viewport: Viewport = {
