@@ -4,7 +4,7 @@ import { SiteFooter, SiteHeader } from '@/components/SiteChrome';
 import { BRAND } from '@/lib/brand';
 import { PRICES, rupee } from '@/lib/pricing';
 
-export const metadata = { title: `Terms and conditions · ${BRAND.name}` };
+export const metadata = { title: `Terms and conditions · ${BRAND.name}`, alternates: { canonical: '/terms' } };
 
 export default function Terms() {
   return (

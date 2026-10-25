@@ -34,8 +34,6 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
 export const JOURNEY: OrderStatus[] = ['paid', 'sent_to_printer', 'printed', 'shipped', 'delivered'];
 export const journeyIndex = (s: OrderStatus) => JOURNEY.indexOf(s === 'pickup_requested' ? 'printed' : s);
 
-// what a printer may move an order to from the printer portal
-export const PRINTER_STATUSES: OrderStatus[] = ['sent_to_printer', 'printed', 'pickup_requested', 'shipped', 'delivered'];
 
 // After-sale problems the admin records on an order.
 export type OrderIssue = 'reprint' | 'refund' | 'return';
@@ -83,6 +81,7 @@ export interface OrderRow {
   issue: OrderIssue | null;
   issue_note: string | null;
   refund_amount: number | null;
+  shiprocket: ShiprocketInfo | null;
 }
 
 // Orders placed before the cart have one design in the old columns. This gives every order the same shape.
@@ -116,7 +115,45 @@ export interface PrinterRow {
   login_id: string | null;
   password_hash: string | null;
   active: boolean;
+  // pickup address and where to send their money, filled in by the merchant under Account
+  address: string | null;
+  city: string | null;
+  pincode: string | null;
+  account_name: string | null;
+  account_number: string | null;
+  ifsc: string | null;
+  upi_id: string | null;
+  shiprocket_pickup: string | null; // the pickup location name in Shiprocket
 }
+
+// what Shiprocket gave back when the merchant requested a pickup
+export interface ShiprocketInfo {
+  mode: 'test' | 'live';
+  order_id?: number;
+  shipment_id?: number;
+  awb?: string;
+  courier?: string;
+  label_url?: string;
+  pickup_booked?: boolean;
+  error?: string;
+  at: string;
+}
+
+export interface PayoutRow {
+  id: string;
+  created_at: string;
+  printer_id: string | null;
+  printer_name: string;
+  amount: number;
+  pay_to: string | null;
+  status: 'requested' | 'paid' | 'rejected';
+  reference: string | null;
+  paid_at: string | null;
+}
+
+// where a merchant's money goes, as one line
+export const payTo = (p: Pick<PrinterRow, 'account_name' | 'account_number' | 'ifsc' | 'upi_id'>) =>
+  [p.upi_id && `UPI ${p.upi_id}`, p.account_number && `A/c ${p.account_number}, IFSC ${p.ifsc ?? ''}${p.account_name ? `, ${p.account_name}` : ''}`].filter(Boolean).join(' or ') || null;
 
 export interface ReviewRow {
   id: string;
