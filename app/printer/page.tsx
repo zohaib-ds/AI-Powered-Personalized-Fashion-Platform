@@ -45,6 +45,23 @@ export default async function PrinterHome({ searchParams }: { searchParams: Prom
     : money.available <= 0 ? 'Nothing to withdraw yet. You earn your rate when an order is delivered.'
     : !money.canNow ? `You can withdraw again on ${day(money.nextAt)}.` : null;
 
+  // the shirt views and the files to print, open while the order is still to be printed
+  const printFiles = (o: OrderRow, open: boolean) => {
+    const items = orderItems(o);
+    return (
+      <details className="more" open={open}>
+        <summary>Print files</summary>
+        {items.map((it, i) => (
+          <section key={i} className="ao-item">
+            {items.length > 1 && <h4>Design {i + 1} of {items.length}</h4>}
+            {it.files.views && links[it.files.views] && <img className="views spec-views" src={links[it.files.views]} alt={`Design ${i + 1} from the front, left, back and right`} />}
+            <PrintSpec design={{ colourId: it.colourId, size: it.size, qty: it.qty, prints: it.prints }} files={it.files} links={links} />
+          </section>
+        ))}
+      </details>
+    );
+  };
+
   const ordersPanel = (
     <>
       {!printer.address && <div className="warn">Add your shop address in the Account tab so the courier knows where to collect from.</div>}
@@ -67,16 +84,7 @@ export default async function PrinterHome({ searchParams }: { searchParams: Prom
                 {o.notes && <div className="note-line">Note from WearSketch: {o.notes}</div>}
               </div>
             </div>
-            <details className="more">
-              <summary>Print files</summary>
-              {items.map((it, i) => (
-                <section key={i} className="ao-item">
-                  {items.length > 1 && <h4>Design {i + 1} of {items.length}</h4>}
-                  {it.files.views && links[it.files.views] && <img className="views spec-views" src={links[it.files.views]} alt={`Design ${i + 1} from the front, left, back and right`} />}
-                  <PrintSpec design={{ colourId: it.colourId, size: it.size, qty: it.qty, prints: it.prints }} files={it.files} links={links} />
-                </section>
-              ))}
-            </details>
+            {printFiles(o, true)}
             <PickupButton id={o.id} />
           </div>
         );
@@ -96,6 +104,7 @@ export default async function PrinterHome({ searchParams }: { searchParams: Prom
                   </div>
                 </div>
                 {sr?.label_url && <a className="btn primary" href={sr.label_url} target="_blank" rel="noreferrer">Download label</a>}
+                {printFiles(o, false)}
               </div>
             );
           })}
