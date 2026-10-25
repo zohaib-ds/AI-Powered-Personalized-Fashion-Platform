@@ -556,6 +556,7 @@ details.confirm p { margin: 0; font-size: 14px; }
 .note-line { font-size: 14px; background: var(--warn-soft); padding: 6px 10px; }
 .btn.wide { width: 100%; }
 .m-wait { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.m-wait > details { flex-basis: 100%; }
 .account-form { max-width: 640px; }
 .account-form .card { margin-bottom: 0; }
 .account-form .card h3, .account-form .card p { margin: 0; }
