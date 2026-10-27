@@ -1,9 +1,12 @@
 import Link from 'next/link';
+import QRCode from 'qrcode';
 import { notFound } from 'next/navigation';
 import ReviewForm from '@/components/ReviewForm';
 import { SiteFooter, SiteHeader } from '@/components/SiteChrome';
 import UnboxingNotice from '@/components/UnboxingNotice';
+import UpiPay from '@/components/UpiPay';
 import { shirtName } from '@/lib/design';
+import { upiLink, upiOn, upiPayee, UTR_MISSING, UTR_SENT } from '@/lib/payments';
 import { rupee } from '@/lib/pricing';
 import { addressText, JOURNEY, journeyIndex, orderItems, signedLinks, STATUS_LABEL, supabaseAdmin, type OrderRow, type ReviewRow } from '@/lib/supabase-server';
 
@@ -33,6 +36,16 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const at = journeyIndex(o.status);
   const canReview = ['printed', 'pickup_requested', 'shipped', 'delivered'].includes(o.status);
   const code = o.code ?? o.id.slice(0, 8).toUpperCase();
+  // pay by UPI: a QR code until the customer sends the UPI reference, then a note while we check it
+  const upi = o.status === 'pending_payment' && upiOn();
+  const utrSent = upi && o.payment_ref?.startsWith(UTR_SENT) ? o.payment_ref.slice(UTR_SENT.length) : null;
+  const utrMissing = o.payment_ref?.startsWith(UTR_MISSING) ? o.payment_ref.slice(UTR_MISSING.length) : null;
+  const link = upi && !utrSent ? upiLink(code, o.total) : null;
+  const qr = link ? await QRCode.toString(link, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#ffffff' } }) : null;
+  const payee = upiPayee();
+  const heading = o.status === 'pending_payment'
+    ? (utrSent ? 'We are checking your payment' : upi ? `Pay ${rupee(o.total)} to confirm your order` : 'Your order is waiting for payment')
+    : o.status === 'cancelled' ? 'This order was cancelled' : fresh ? 'Thank you. Your order is in.' : STEP_TEXT[JOURNEY[at]] ?? STATUS_LABEL[o.status];
 
   return (
     <>
@@ -42,10 +55,18 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
         <div className="order-hero">
           <div>
             <p className="eyebrow">Order #{code}</p>
-            <h1>{o.status === 'pending_payment' ? 'Your order is waiting for payment' : o.status === 'cancelled' ? 'This order was cancelled' : fresh ? 'Thank you. Your order is in.' : STEP_TEXT[JOURNEY[at]] ?? STATUS_LABEL[o.status]}</h1>
+            <h1>{heading}</h1>
             <p className="muted">Keep this page. It updates as your shirt is printed and shipped. You can also find it any time from <Link href="/track">Track order</Link> with #{code} and your phone number.</p>
           </div>
         </div>
+
+        {qr && link && <UpiPay orderId={o.id} amount={rupee(o.total)} qr={qr} link={link} upiId={payee.id} payee={payee.name} missing={utrMissing} />}
+        {utrSent && (
+          <div className="card">
+            <h3>Payment sent for checking</h3>
+            <p className="muted">You gave UPI reference number {utrSent}. We check every payment against our bank account and start printing once it is confirmed. This page updates when it is.</p>
+          </div>
+        )}
 
         {at >= 0 && (
           <ol className="journey" aria-label="Order progress">

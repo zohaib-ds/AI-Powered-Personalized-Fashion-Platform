@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ADDRESS_FIELDS, COLOURS, FONTS, formatAddress, isDelhiPincode, isMobile, isSize, mobileDigits, shortId, ZONES, zonesUsed, type Address, type PrintSummary, type SizeId } from '@/lib/design';
+import { upiOn } from '@/lib/payments';
 import { PRICES, quoteOrder } from '@/lib/pricing';
 import { PRINT_BUCKET, supabaseAdmin, type OrderItem } from '@/lib/supabase-server';
 
@@ -63,19 +64,16 @@ export async function POST(req: Request) {
   // signed upload links: per design, one 300 DPI PNG per print zone plus pictures of the shirt
   const id = crypto.randomUUID();
   const uploads: Record<string, { path: string; signedUrl: string }> = {};
-  const orderItems: OrderItem[] = [];
-  for (const [i, item] of clean.entries()) {
-    const files: Record<string, string> = {};
-    for (const key of [...zonesUsed(item), 'preview', 'views']) {
-      const path = `${id}/${i + 1}/${key}.png`;
-      const { data, error } = await db.storage.from(PRINT_BUCKET).createSignedUploadUrl(path, { upsert: true });
-      if (error || !data) return NextResponse.json({ error: 'Could not prepare the file upload. Please try again.' }, { status: 500 });
-      uploads[`${i}:${key}`] = { path, signedUrl: data.signedUrl };
-      files[key] = path;
-    }
+  const wanted = clean.flatMap((item, i) => [...zonesUsed(item), 'preview', 'views'].map((key) => ({ i, key, path: `${id}/${i + 1}/${key}.png` })));
+  // all at once: one by one, each link waits for the last
+  const signed = await Promise.all(wanted.map((w) => db.storage.from(PRINT_BUCKET).createSignedUploadUrl(w.path, { upsert: true })));
+  if (signed.some((r) => r.error || !r.data)) return NextResponse.json({ error: 'Could not prepare the file upload. Please try again.' }, { status: 500 });
+  wanted.forEach((w, n) => { uploads[`${w.i}:${w.key}`] = { path: w.path, signedUrl: signed[n].data!.signedUrl }; });
+  const orderItems: OrderItem[] = clean.map((item, i) => {
+    const files = Object.fromEntries(wanted.filter((w) => w.i === i).map((w) => [w.key, w.path]));
     const iq = q.items[i];
-    orderItems.push({ colourId: item.colourId, size: item.size, qty: iq.qty, prints: item.prints, files, label: iq.label, each: iq.each, cost: iq.cost });
-  }
+    return { colourId: item.colourId, size: item.size, qty: iq.qty, prints: item.prints, files, label: iq.label, each: iq.each, cost: iq.cost };
+  });
 
   const first = orderItems[0];
   const { error } = await db.from('orders').insert({
@@ -90,5 +88,5 @@ export async function POST(req: Request) {
   });
   if (error) return NextResponse.json({ error: 'Could not save the order. Please try again.' }, { status: 500 });
 
-  return NextResponse.json({ orderId: id, total: q.total, uploads });
+  return NextResponse.json({ orderId: id, total: q.total, uploads, payment: upiOn() ? 'upi' : 'sample' });
 }
