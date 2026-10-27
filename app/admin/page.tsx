@@ -6,6 +6,7 @@ import PrintSpec, { Stars } from '@/components/PrintSpec';
 import Tabs, { OrderFilter } from '@/components/Tabs';
 import { weekLabel, weekly } from '@/lib/analytics';
 import { COLOURS, SIZES } from '@/lib/design';
+import { UTR_SENT } from '@/lib/payments';
 import { merchantMoney } from '@/lib/payouts';
 import { rupee } from '@/lib/pricing';
 import { pickupName, shiprocketMode, shiprocketOn } from '@/lib/shiprocket';
@@ -15,7 +16,7 @@ import {
 } from '@/lib/supabase-server';
 import {
   assignOrder, deletePrinter, markDelivered, markShipped, retryShiprocket, setPrinterActive, setReviewPublic,
-  payoutPaid, payoutRejected, setShiprocketPickup, updateOrder,
+  payoutPaid, payoutRejected, paymentMissing, paymentReceived, setShiprocketPickup, updateOrder,
 } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -61,11 +62,12 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
     .filter(([, n]) => n > 0);
 
   // the To do list
+  const toCheck = orders.filter((o) => o.status === 'pending_payment' && o.payment_ref?.startsWith(UTR_SENT));
   const needPrinter = orders.filter((o) => o.status === 'paid' && !o.printer_id);
   const pickups = orders.filter((o) => o.status === 'pickup_requested');
   const onTheWay = orders.filter((o) => o.status === 'shipped');
   const toPay = payouts.filter((p) => p.status === 'requested');
-  const todoCount = needPrinter.length + pickups.length + onTheWay.length + toPay.length;
+  const todoCount = toCheck.length + needPrinter.length + pickups.length + onTheWay.length + toPay.length;
 
   // open orders first, then the most recent, so the list stays quick
   const open = orders.filter((o) => ['paid', 'sent_to_printer', 'printed', 'pickup_requested', 'shipped'].includes(o.status));
@@ -80,6 +82,28 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
     <>
       {error && <div className="err">Could not load orders: {error.message}. If the site was just updated, run supabase/schema.sql again in Supabase.</div>}
       {!todoCount && !error && <div className="card empty">Nothing is waiting on you.</div>}
+
+      {toCheck.length > 0 && (
+        <section className="card">
+          <h3>Check UPI payments</h3>
+          <p className="muted">Open the bank or UPI app for the UPI ID customers pay to. Find each reference number and check the amount before you confirm.</p>
+          {toCheck.map((o) => (
+            <div key={o.id} className="todo-row">
+              <div className="todo-main">
+                {thumb(o)}
+                <div>
+                  <strong>{rupee(o.total)}</strong> for #{codeOf(o)} · UPI ref <code>{o.payment_ref!.slice(UTR_SENT.length)}</code>
+                  <div className="muted">{o.customer_name}, {o.phone} · ordered {fmt(o.created_at)}</div>
+                </div>
+              </div>
+              <div className="todo-act">
+                <form action={paymentReceived}><input type="hidden" name="id" value={o.id} /><button className="btn primary small">Money received</button></form>
+                <form action={paymentMissing}><input type="hidden" name="id" value={o.id} /><button className="btn small ghost">Not found</button></form>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
 
       {toPay.length > 0 && (
         <section className="card">

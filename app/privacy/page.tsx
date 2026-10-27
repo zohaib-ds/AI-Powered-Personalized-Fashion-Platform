@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Contact from '@/components/Contact';
 import { SiteFooter, SiteHeader } from '@/components/SiteChrome';
 import { BRAND } from '@/lib/brand';
+import { upiOn } from '@/lib/payments';
 
 export const metadata = { title: `Privacy policy · ${BRAND.name}`, alternates: { canonical: '/privacy' } };
 
@@ -38,7 +39,9 @@ export default function Privacy() {
           <li><strong>Our print partner</strong> who prints your order sees your name, phone number, delivery address, the print files and your review of that order.</li>
           <li><strong>Our delivery partner</strong> receives your name, phone number and address to deliver the parcel.</li>
           <li><strong>Our service providers</strong> store and run the website for us: Vercel hosts the site, Supabase stores the order database and print files, and Google Fonts serves the typefaces. Their servers may be outside India.</li>
-          <li><strong>A payment provider</strong>, once online payment is switched on, will process your payment. We will never see or store your full card details.</li>
+          {upiOn()
+            ? <li><strong>Your UPI app and bank</strong> process your payment. We see the amount and the UPI reference number you give us, to match the payment to your order. We never see your UPI PIN or bank login.</li>
+            : <li><strong>A payment provider</strong>, once online payment is switched on, will process your payment. We will never see or store your full card details.</li>}
         </ul>
         <p>We may also share data when the law requires it.</p>
 

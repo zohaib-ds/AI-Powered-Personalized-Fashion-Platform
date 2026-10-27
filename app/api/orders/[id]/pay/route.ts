@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
-import { samplePay } from '@/lib/payments';
+import { samplePay, upiOn } from '@/lib/payments';
 import { stampStatus, supabaseAdmin } from '@/lib/supabase-server';
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: 'Order not found.' }, { status: 404 });
+  // with real UPI payments on, nobody may mark an order paid without the admin checking the money
+  if (upiOn()) return NextResponse.json({ error: 'Pay by UPI on your order page.' }, { status: 403 });
 
   let db;
   try {

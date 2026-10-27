@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Contact from '@/components/Contact';
 import { SiteFooter, SiteHeader } from '@/components/SiteChrome';
 import { BRAND } from '@/lib/brand';
+import { upiOn } from '@/lib/payments';
 import { PRICES, rupee } from '@/lib/pricing';
 
 export const metadata = { title: `Terms and conditions · ${BRAND.name}`, alternates: { canonical: '/terms' } };
@@ -21,7 +22,9 @@ export default function Terms() {
 
         <h2>2. Prices and payment</h2>
         <p>Prices are in Indian rupees. The studio and the checkout show the full price before you order: the price per shirt, which depends on the areas you print, plus delivery: {rupee(PRICES.delivery.base)} for up to {PRICES.delivery.perShirts} shirts and {rupee(PRICES.delivery.step)} more for every further {PRICES.delivery.perShirts} shirts in the order. The price shown when you place the order is the price you pay.</p>
-        <p>While online payment is being set up, checkout runs in test mode and no money is charged. We will update these terms when real payments start.</p>
+        {upiOn()
+          ? <p>You pay by UPI to the UPI ID shown on your order page, using any UPI app. We start on your order once we have checked that the payment reached us. If we cannot find it, your order page asks you to check the UPI reference number.</p>
+          : <p>While online payment is being set up, checkout runs in test mode and no money is charged. We will update these terms when real payments start.</p>}
 
         <h2>3. Your order</h2>
         <p>An order is accepted when you see its order page with an order number. We may cancel an order and give a full refund if we cannot print it, for example because a file is unusable, the address is outside our delivery area or the design breaks section 4.</p>

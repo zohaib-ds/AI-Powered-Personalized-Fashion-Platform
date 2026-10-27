@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { ADMIN_COOKIE, adminTokenValid } from '@/lib/admin-session';
 import { hashPassword, newLoginId, newPassword } from '@/lib/printer-auth';
+import { UTR_MISSING, UTR_SENT } from '@/lib/payments';
 import { bookShipment } from '@/lib/shiprocket';
 import { ISSUE_LABEL, stampStatus, STATUS_LABEL, supabaseAdmin, type OrderRow, type OrderStatus, type PrinterRow } from '@/lib/supabase-server';
 
@@ -211,4 +212,33 @@ async function settlePayout(form: FormData, status: 'paid' | 'rejected') {
     .update({ status, reference: text(form, 'reference', 120), paid_at: status === 'paid' ? new Date().toISOString() : null })
     .eq('id', id).eq('status', 'requested');
   revalidatePath('/admin');
+}
+
+// A UPI payment the customer reported: the admin found it in the bank app, or could not find it.
+export async function paymentReceived(form: FormData) {
+  await requireAdmin();
+  const id = String(form.get('id') || '');
+  if (!isId(id)) return;
+  const db = supabaseAdmin();
+  const { data } = await db.from('orders').select('status,status_times').eq('id', id).single();
+  const o = data as Pick<OrderRow, 'status' | 'status_times'> | null;
+  if (!o || o.status !== 'pending_payment') return;
+  const now = new Date().toISOString();
+  await db.from('orders').update({ status: 'paid', updated_at: now, status_times: stampStatus(o.status_times, 'paid', now) }).eq('id', id).eq('status', 'pending_payment');
+  revalidatePath('/admin');
+  revalidatePath(`/order/${id}`);
+}
+
+export async function paymentMissing(form: FormData) {
+  await requireAdmin();
+  const id = String(form.get('id') || '');
+  if (!isId(id)) return;
+  const db = supabaseAdmin();
+  const { data } = await db.from('orders').select('status,payment_ref').eq('id', id).single();
+  const o = data as Pick<OrderRow, 'status' | 'payment_ref'> | null;
+  if (!o || o.status !== 'pending_payment' || !o.payment_ref?.startsWith(UTR_SENT)) return;
+  // the order page asks the customer to check the number and send it again
+  await db.from('orders').update({ payment_ref: UTR_MISSING + o.payment_ref.slice(UTR_SENT.length), updated_at: new Date().toISOString() }).eq('id', id);
+  revalidatePath('/admin');
+  revalidatePath(`/order/${id}`);
 }

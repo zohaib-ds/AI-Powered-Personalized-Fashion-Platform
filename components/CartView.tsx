@@ -11,11 +11,12 @@ interface CreateResponse {
   orderId: string;
   total: number;
   uploads: Record<string, { path: string; signedUrl: string }>;
+  payment: 'upi' | 'sample';
 }
 
 const digits = (v: string, max: number) => v.replace(/\D/g, '').slice(0, max);
 
-export default function CartView() {
+export default function CartView({ upi }: { upi: boolean }) {
   const router = useRouter();
   const [items, setItems] = useState<CartItem[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -89,19 +90,21 @@ export default function CartView() {
       const order = data as CreateResponse;
 
       setBusy('Uploading print files…');
-      for (const [i, it] of items.entries()) {
-        for (const [key, blob] of Object.entries(it.files)) {
-          const up = order.uploads[`${i}:${key}`];
-          if (!up) continue;
-          const r = await fetch(up.signedUrl, { method: 'PUT', headers: { 'content-type': 'image/png', 'x-upsert': 'true' }, body: blob });
-          if (!r.ok) throw new Error('A print file did not upload. Please try again.');
-        }
-      }
+      const puts = items.flatMap((it, i) => Object.entries(it.files).map(([key, blob]) => {
+        const up = order.uploads[`${i}:${key}`];
+        return up ? fetch(up.signedUrl, { method: 'PUT', headers: { 'content-type': 'image/png', 'x-upsert': 'true' }, body: blob }) : null;
+      }));
+      // all files at once, which is much quicker than one after another
+      const done = await Promise.all(puts);
+      if (done.some((r) => r && !r.ok)) throw new Error('A print file did not upload. Please try again.');
 
-      setBusy('Confirming payment…');
-      const pay = await fetch(`/api/orders/${order.orderId}/pay`, { method: 'POST' });
-      const payData = await pay.json();
-      if (!pay.ok) throw new Error(payData.error || 'Payment failed.');
+      // with UPI the customer pays on the order page; the sample provider approves straight away
+      if (order.payment !== 'upi') {
+        setBusy('Confirming payment…');
+        const pay = await fetch(`/api/orders/${order.orderId}/pay`, { method: 'POST' });
+        const payData = await pay.json();
+        if (!pay.ok) throw new Error(payData.error || 'Payment failed.');
+      }
       await clearCart().catch(() => {});
       router.push(`/order/${order.orderId}?new=1`);
     } catch (err) {
@@ -184,7 +187,9 @@ export default function CartView() {
                 </div>
               ))}
             </div>
-            <div className="sample-note">Test mode: no money is charged yet. Your order is saved and marked paid so the whole flow can be tried.</div>
+            {upi
+              ? <p className="muted">After you place the order, the next page shows a UPI QR code for the exact amount. Pay with any UPI app.</p>
+              : <div className="sample-note">Test mode: no money is charged yet. Your order is saved and marked paid so the whole flow can be tried.</div>}
             {error && <div className="err" role="alert">{error}</div>}
             <div className="co-actions">
               <button type="button" className="btn ghost" onClick={() => { setStep('cart'); setError(null); }} disabled={!!busy}>Back to cart</button>
