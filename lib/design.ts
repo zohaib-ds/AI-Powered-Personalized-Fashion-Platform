@@ -70,7 +70,8 @@ export const COLOURS: Colour[] = [
 
 // Shirt sizes. Every size costs the same. Chest is the body measurement each size suits.
 // 'free' is only on old orders and cart items: the printers do not make a free size, so it can't be picked.
-export type SizeId = 'free' | 'S' | 'M' | 'L' | 'XL' | 'XXL';
+// 'test' is the ₹1 size for trying a real payment; only the admin's browser can pick it (see lib/admin-session.ts).
+export type SizeId = 'free' | 'S' | 'M' | 'L' | 'XL' | 'XXL' | 'test';
 export const SIZES: { id: SizeId; label: string; fit: string }[] = [
   { id: 'S', label: 'S', fit: 'Chest 36 to 38 in' },
   { id: 'M', label: 'M', fit: 'Chest 38 to 40 in' },
@@ -78,12 +79,14 @@ export const SIZES: { id: SizeId; label: string; fit: string }[] = [
   { id: 'XL', label: 'XL', fit: 'Chest 42 to 44 in' },
   { id: 'XXL', label: 'XXL', fit: 'Chest 44 to 46 in' },
 ];
+export const TEST_SIZE = { id: 'test' as SizeId, label: 'Test ₹1', fit: 'Payment test, only you see it' };
 export const isSize = (v: unknown): v is SizeId => SIZES.some((s) => s.id === v);
-export const sizeShort = (size?: string) => (!size || size === 'free' ? 'Free size' : size);
+export const sizeShort = (size?: string) => (!size || size === 'free' ? 'Free size' : size === 'test' ? 'TEST (₹1 payment test, do not print)' : size);
 
 // "White free-size tee" or "Black tee, size M". Orders from before sizes were free size.
 export function shirtName(colourId: string, size?: string): string {
   const colour = COLOURS.find((c) => c.id === colourId)?.name ?? colourId;
+  if (size === 'test') return `${colour} tee, ₹1 payment test (do not print)`;
   return !size || size === 'free' ? `${colour} free-size tee` : `${colour} tee, size ${size}`;
 }
 

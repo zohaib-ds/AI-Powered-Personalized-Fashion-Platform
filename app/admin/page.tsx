@@ -1,10 +1,12 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import AdminIdle from '@/components/AdminIdle';
 import { AddMerchantForm, ResetPasswordForm } from '@/components/AdminForms';
 import PortalHeader from '@/components/PortalHeader';
 import PrintSpec, { Stars } from '@/components/PrintSpec';
 import Tabs, { OrderFilter } from '@/components/Tabs';
 import { weekLabel, weekly } from '@/lib/analytics';
+import { TEST_COOKIE, testUntil } from '@/lib/admin-session';
 import { COLOURS, SIZES } from '@/lib/design';
 import { UTR_SENT } from '@/lib/payments';
 import { merchantMoney } from '@/lib/payouts';
@@ -17,7 +19,7 @@ import {
 } from '@/lib/supabase-server';
 import {
   assignOrder, deletePrinter, markDelivered, markShipped, retryShiprocket, setPrinterActive, setReviewPublic,
-  payoutPaid, payoutRejected, paymentMissing, paymentReceived, setShiprocketPickup, updateOrder,
+  payoutPaid, payoutRejected, paymentMissing, paymentReceived, setShiprocketPickup, startPaymentTest, stopPaymentTest, updateOrder,
 } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -32,6 +34,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 export default async function Admin({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const sp = await searchParams;
+  const testEnds = await testUntil((await cookies()).get(TEST_COOKIE)?.value);
   const db = supabaseAdmin();
   const [{ data: od, error }, { data: pd }, { data: rd }, { data: yd }] = await Promise.all([
     db.from('orders').select('*').order('created_at', { ascending: false }).limit(1000),
@@ -84,6 +87,22 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
     <>
       {error && <div className="err">Could not load orders: {error.message}. If the site was just updated, run supabase/schema.sql again in Supabase.</div>}
       {!todoCount && !error && <div className="card empty">Nothing is waiting on you.</div>}
+
+      <section className="card">
+        <h3>Payment test</h3>
+        {testEnds ? (
+          <>
+            <p>The <strong>Test ₹1</strong> size is on in this browser until {new Date(testEnds).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit' })} India time. Customers never see it.</p>
+            <p className="muted">Open the studio, make a design, tap Add to cart and pick Test ₹1. Checkout costs ₹1 with no delivery. After the payment shows here, cancel that order in the Orders tab so no merchant prints it.</p>
+            <form action={stopPaymentTest}><button className="btn small ghost">Turn off ₹1 test</button></form>
+          </>
+        ) : (
+          <>
+            <p className="muted">Adds a Test ₹1 size in this browser for one hour, so you can try a real payment without paying for a shirt.</p>
+            <form action={startPaymentTest}><button className="btn small">Turn on ₹1 test</button></form>
+          </>
+        )}
+      </section>
 
       {toCheck.length > 0 && (
         <section className="card">

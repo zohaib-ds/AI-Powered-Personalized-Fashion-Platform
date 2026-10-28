@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import CartLink from './CartLink';
 import Wordmark from './Wordmark';
 import { addToCart, cartItem, replaceCartDesign } from '@/lib/cart';
-import { isSize, SIZES, ZONE_INFO, ZONES, type SizeId, type Zone } from '@/lib/design';
+import { isSize, SIZES, TEST_SIZE, ZONE_INFO, ZONES, type SizeId, type Zone } from '@/lib/design';
 import { FROM_PRICE, PRICES, quoteItem, rupee } from '@/lib/pricing';
 import type { StudioApi, StudioChange } from '@/lib/studio/engine';
 
@@ -36,6 +36,10 @@ export default function Studio() {
   const router = useRouter();
   // /studio?edit=<cart item>: the design is opened from the cart and saved back over it
   const [editId, setEditId] = useState<string | null>(null);
+  // the ₹1 payment test size, only when the admin turned it on in this browser
+  const [testOn, setTestOn] = useState(false);
+  useEffect(() => { fetch('/api/test-size').then((r) => r.json()).then((d) => setTestOn(!!d.on)).catch(() => {}); }, []);
+  const sizes = testOn ? [...SIZES, TEST_SIZE] : SIZES;
 
   useEffect(() => {
     let gone = false;
@@ -53,7 +57,7 @@ export default function Studio() {
             await a.load(it.design);
             setEditId(it.id);
             setQty(it.qty);
-            setSize(isSize(it.size) ? it.size : null);
+            setSize(isSize(it.size) || it.size === 'test' ? it.size : null);
           } else setAddError('That design is no longer in your cart, so this is a new design.');
         }
         if (!gone) setState('ready');
@@ -67,7 +71,7 @@ export default function Studio() {
   }, []);
 
   const prints = design?.prints ?? [];
-  const q = quoteItem({ prints, qty });
+  const q = quoteItem({ prints, qty, size: size ?? undefined });
   const zones = design?.zones ?? [];
   const lowRes = prints.filter((p) => p.type === 'image' && (p.dpi ?? 300) < 120).length;
 
@@ -267,7 +271,7 @@ export default function Studio() {
           {addError && <div className="err" role="alert">{addError}</div>}
           {added ? (
             <div className="added" role="status">
-              <p><strong>Added to your cart{addedSize ? `, ${SIZES.find((s) => s.id === addedSize)?.label}` : ''}.</strong> Change the shirt to make another design, or check out.</p>
+              <p><strong>Added to your cart{addedSize ? `, ${[...SIZES, TEST_SIZE].find((s) => s.id === addedSize)?.label}` : ''}.</strong> Change the shirt to make another design, or check out.</p>
               <button className="link-btn" onClick={askSize}>Add this design in another size</button>
               <div className="order-act">
                 <button className="btn" onClick={() => { api.current?.startNew(); }}>Start a new design</button>
@@ -293,7 +297,7 @@ export default function Studio() {
       <dialog ref={sizeDialog} className="notice-dialog size-dialog" aria-labelledby="sizeTitle">
         <h2 id="sizeTitle">Pick a size</h2>
         <div className="size-grid" role="radiogroup" aria-label="Shirt size">
-          {SIZES.map((s) => (
+          {sizes.map((s) => (
             <button key={s.id} data-size={s.id} role="radio" aria-checked={size === s.id} onClick={() => setSize(s.id)}>
               <strong>{s.label}</strong>
               <span>{s.fit}</span>

@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { TEST_COOKIE, testUntil } from '@/lib/admin-session';
 import { ADDRESS_FIELDS, COLOURS, FONTS, formatAddress, isDelhiPincode, isMobile, isSize, mobileDigits, shortId, ZONES, zonesUsed, type Address, type PrintSummary, type SizeId } from '@/lib/design';
 import { upiOn } from '@/lib/payments';
 import { PRICES, quoteOrder } from '@/lib/pricing';
@@ -9,11 +11,11 @@ const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice
 
 interface CleanItem { colourId: string; size: SizeId; qty: number; prints: PrintSummary[] }
 
-function cleanItem(raw: unknown): CleanItem | null {
+function cleanItem(raw: unknown, test: boolean): CleanItem | null {
   const d = raw as CleanItem;
   if (!d || typeof d !== 'object' || !Array.isArray(d.prints) || !d.prints.length || d.prints.length > 40) return null;
   if (!COLOURS.some((c) => c.id === d.colourId)) return null;
-  if (!isSize(d.size)) return null;
+  if (!isSize(d.size) && !(test && d.size === 'test')) return null;
   const prints = d.prints.map((p): PrintSummary | null => {
     if (!p || !ZONES.includes(p.zone) || !['text', 'image', 'draw'].includes(p.type)) return null;
     if (!num(p.x, -40, 40) || !num(p.y, -40, 40) || !num(p.wCm, 0, 300) || !num(p.hCm, 0, 300) || !num(p.rot, -360, 360)) return null;
@@ -36,7 +38,9 @@ export async function POST(req: Request) {
   const rawItems = Array.isArray(body.items) ? body.items : body.design ? [body.design] : [];
   if (!rawItems.length) return NextResponse.json({ error: 'Your cart is empty.' }, { status: 400 });
   if (rawItems.length > PRICES.maxItems) return NextResponse.json({ error: `You can order up to ${PRICES.maxItems} designs at once.` }, { status: 400 });
-  const items = rawItems.map(cleanItem);
+  // the ₹1 test size only works in the admin's browser, after Turn on ₹1 test in /admin
+  const test = (await testUntil((await cookies()).get(TEST_COOKIE)?.value)) > 0;
+  const items = rawItems.map((r) => cleanItem(r, test));
   if (items.some((i) => !i)) return NextResponse.json({ error: 'One of the designs could not be read. Remove it from the cart and add it again.' }, { status: 400 });
   const clean = items as CleanItem[];
 

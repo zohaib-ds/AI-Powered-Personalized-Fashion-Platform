@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
-import { ADMIN_COOKIE, adminTokenValid } from '@/lib/admin-session';
+import { ADMIN_COOKIE, adminTokenValid, TEST_COOKIE, testCookieOptions, testToken } from '@/lib/admin-session';
 import { hashPassword, newLoginId, newPassword, sealPassword } from '@/lib/printer-auth';
 import { UTR_MISSING, UTR_SENT } from '@/lib/payments';
 import { bookShipment } from '@/lib/shiprocket';
@@ -14,6 +14,18 @@ const text = (form: FormData, k: string, max: number) => String(form.get(k) || '
 
 async function requireAdmin() {
   if (!(await adminTokenValid((await cookies()).get(ADMIN_COOKIE)?.value))) throw new Error('Signed out. Open /admin/login to sign in again.');
+}
+
+// the ₹1 test size, in this browser only, for one hour
+export async function startPaymentTest() {
+  await requireAdmin();
+  (await cookies()).set(TEST_COOKIE, await testToken(), testCookieOptions);
+  revalidatePath('/admin');
+}
+export async function stopPaymentTest() {
+  await requireAdmin();
+  (await cookies()).set(TEST_COOKIE, '', { ...testCookieOptions, maxAge: 0 });
+  revalidatePath('/admin');
 }
 
 export async function updateOrder(form: FormData) {
