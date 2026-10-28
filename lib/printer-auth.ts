@@ -1,5 +1,5 @@
 import 'server-only';
-import { createHmac, randomBytes, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { supabaseAdmin, type PrinterRow } from './supabase-server';
 
@@ -27,6 +27,30 @@ export function checkPassword(password: string, stored: string | null): boolean 
   const want = Buffer.from(hash, 'base64url');
   const got = scryptSync(password, salt, want.length);
   return got.length === want.length && timingSafeEqual(got, want);
+}
+
+// A locked copy of the password, so the admin can see it again under Merchants.
+// AES-GCM with a key made from the Supabase secret key, which only the server has: "gcm$iv$tag$data".
+const pwKey = () => createHash('sha256').update('wearsketch-merchant-password:' + (process.env.SUPABASE_SERVICE_ROLE_KEY ?? '')).digest();
+
+export function sealPassword(password: string): string {
+  const iv = randomBytes(12);
+  const c = createCipheriv('aes-256-gcm', pwKey(), iv);
+  const data = Buffer.concat([c.update(password, 'utf8'), c.final()]);
+  return ['gcm', iv, c.getAuthTag(), data].map((v) => (typeof v === 'string' ? v : v.toString('base64url'))).join('$');
+}
+
+// null when there is no copy, or the secret key changed since it was made
+export function openPassword(sealed: string | null | undefined): string | null {
+  const [kind, iv, tag, data] = (sealed ?? '').split('$');
+  if (kind !== 'gcm' || !iv || !tag || !data) return null;
+  try {
+    const d = createDecipheriv('aes-256-gcm', pwKey(), Buffer.from(iv, 'base64url'));
+    d.setAuthTag(Buffer.from(tag, 'base64url'));
+    return Buffer.concat([d.update(Buffer.from(data, 'base64url')), d.final()]).toString('utf8');
+  } catch {
+    return null;
+  }
 }
 
 const ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

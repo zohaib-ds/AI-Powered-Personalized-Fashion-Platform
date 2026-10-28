@@ -54,7 +54,13 @@ export default async function PrinterHome({ searchParams }: { searchParams: Prom
         {items.map((it, i) => (
           <section key={i} className="ao-item">
             {items.length > 1 && <h4>Design {i + 1} of {items.length}</h4>}
-            {it.files.views && links[it.files.views] && <img className="views spec-views" src={links[it.files.views]} alt={`Design ${i + 1} from the front, left, back and right`} />}
+            {it.files.views && links[it.files.views] && (
+              <>
+                <img className="views spec-views" src={links[it.files.views]} alt={`Design ${i + 1} from the front, left, back and right`} />
+                {/* download= makes the storage link save the file instead of opening it */}
+                <a className="btn small" href={`${links[it.files.views]}&download=${encodeURIComponent(`order-${o.code ?? o.id.slice(0, 8)}-design-${i + 1}-full-view.png`)}`}>Download full view</a>
+              </>
+            )}
             <PrintSpec design={{ colourId: it.colourId, size: it.size, qty: it.qty, prints: it.prints }} files={it.files} links={links} />
           </section>
         ))}

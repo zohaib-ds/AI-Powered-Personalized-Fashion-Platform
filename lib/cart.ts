@@ -2,15 +2,17 @@
 // its print files: one 300 DPI PNG per print area plus two pictures of the shirt.
 // Nothing is sent to the server until checkout.
 import type { PrintSummary, SizeId } from './design';
+import type { SavedDesign } from './studio/engine';
 
 export interface CartItem {
   id: string;
   addedAt: number;
   colourId: string;
-  size?: SizeId; // missing on items added before sizes existed: free size
+  size?: SizeId; // missing or 'free' on items from before: the customer picks a size in the cart
   qty: number;
   prints: PrintSummary[];
   files: Record<string, Blob>; // zone → print file, plus preview and views
+  design?: SavedDesign; // the editable design, so Edit in the cart can open it in the studio again
 }
 
 const DB = 'wearsketch-cart';
@@ -47,6 +49,18 @@ export async function cartItems(): Promise<CartItem[]> {
 export async function addToCart(item: Omit<CartItem, 'id' | 'addedAt'>): Promise<void> {
   const full: CartItem = { ...item, id: crypto.randomUUID(), addedAt: Date.now() };
   await run('readwrite', (s) => s.put(full));
+  changed();
+}
+
+export async function cartItem(id: string): Promise<CartItem | undefined> {
+  return run<CartItem>('readonly', (s) => s.get(id));
+}
+
+// saves an edited design over its cart line, keeping its place in the cart
+export async function replaceCartDesign(id: string, d: Pick<CartItem, 'colourId' | 'size' | 'qty' | 'prints' | 'files' | 'design'>): Promise<void> {
+  const it = await cartItem(id);
+  if (!it) throw new Error('This design is no longer in your cart.');
+  await run('readwrite', (s) => s.put({ ...it, ...d }));
   changed();
 }
 

@@ -14,7 +14,7 @@ export const metadata = {
 const D = PRICES.delivery;
 
 export default function About() {
-  const sizes = SIZES.filter((s) => s.id !== 'free').map((s) => s.label);
+  const sizes = SIZES.map((s) => s.label);
   return (
     <>
       <SiteHeader />
@@ -35,7 +35,7 @@ export default function About() {
         </ol>
 
         <h2>What you can order</h2>
-        <p>One tee in {COLOURS.length} colours, in sizes {sizes.join(', ')} or a relaxed free size. Every size costs the same. The price only depends on how many areas you print:</p>
+        <p>One tee in {COLOURS.length} colours, in sizes {sizes.join(', ')}. Every size costs the same. The price only depends on how many areas you print:</p>
         <table className="kv about-prices"><tbody>
           {PRICES.byAreas.map((p, i) => <tr key={i}><td>{i + 1} printed area{i ? 's' : ''}</td><td>{rupee(p)} per shirt</td></tr>)}
           <tr><td>Delivery</td><td>{rupee(D.base)} for up to {D.perShirts} shirts, then {rupee(D.step)} more for every {D.perShirts} shirts</td></tr>

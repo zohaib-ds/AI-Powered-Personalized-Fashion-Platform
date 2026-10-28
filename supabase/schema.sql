@@ -101,6 +101,9 @@ alter table public.printers add column if not exists upi_id text;
 alter table public.printers add column if not exists shiprocket_pickup text;
 alter table public.orders add column if not exists shiprocket jsonb;
 
+-- A locked copy of each merchant password so the admin can see it again (October 2026)
+alter table public.printers add column if not exists password_enc text;
+
 -- A merchant asks to withdraw what they earned; the admin pays it and marks it paid.
 create table if not exists public.payouts (
   id uuid primary key default gen_random_uuid(),

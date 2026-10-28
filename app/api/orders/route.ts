@@ -13,7 +13,7 @@ function cleanItem(raw: unknown): CleanItem | null {
   const d = raw as CleanItem;
   if (!d || typeof d !== 'object' || !Array.isArray(d.prints) || !d.prints.length || d.prints.length > 40) return null;
   if (!COLOURS.some((c) => c.id === d.colourId)) return null;
-  if (d.size !== undefined && !isSize(d.size)) return null;
+  if (!isSize(d.size)) return null;
   const prints = d.prints.map((p): PrintSummary | null => {
     if (!p || !ZONES.includes(p.zone) || !['text', 'image', 'draw'].includes(p.type)) return null;
     if (!num(p.x, -40, 40) || !num(p.y, -40, 40) || !num(p.wCm, 0, 300) || !num(p.hCm, 0, 300) || !num(p.rot, -360, 360)) return null;
@@ -23,7 +23,7 @@ function cleanItem(raw: unknown): CleanItem | null {
     return out;
   });
   if (prints.some((p) => !p)) return null;
-  return { colourId: d.colourId, size: d.size ?? 'free', qty: Math.min(PRICES.maxQty, Math.max(1, Math.floor(Number(d.qty)) || 1)), prints: prints as PrintSummary[] };
+  return { colourId: d.colourId, size: d.size, qty: Math.min(PRICES.maxQty, Math.max(1, Math.floor(Number(d.qty)) || 1)), prints: prints as PrintSummary[] };
 }
 
 export async function POST(req: Request) {

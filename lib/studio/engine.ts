@@ -47,8 +47,13 @@ export interface StudioChange {
   zones: Zone[];
 }
 
+// what the studio keeps of a design so it can be opened again (in this browser, and with each cart item)
+export interface SavedDesign { colour?: string; objects?: Record<string, any>[] }
+
 export interface StudioApi {
   summary(): StudioChange;
+  design(): SavedDesign; // the editable design, with full size images, for the cart
+  load(d: SavedDesign): Promise<void>; // replaces the shirt with a saved design (undo brings the old one back)
   printFiles(): Promise<Partial<Record<Zone, Blob>>>;
   previews(): Promise<{ preview: Blob; views: Blob }>;
   showZone(z: Zone): void;
@@ -766,36 +771,42 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
   };
 
   // ---------- keep the design in this browser ----------
+  // withFull adds each image's large copy, so a design opened from the cart prints as sharp as before
+  function designData(withFull: boolean): SavedDesign {
+    return {
+      colour: state.colour.id,
+      objects: state.objects.map((o) => {
+        const c: Record<string, unknown> = { type: o.type, x: o.x, y: o.y, scale: o.scale, rot: o.rot };
+        if (o.type === 'text') Object.assign(c, { text: o.text, font: o.font, color: o.color });
+        if (o.type === 'image') Object.assign(c, { src: o.src }, withFull && o.full.src !== o.src ? { full: o.full.src } : {});
+        if (o.type === 'draw') Object.assign(c, { strokes: o.strokes });
+        return c;
+      }),
+    };
+  }
   function persist() {
     if (!restored) return;
     try {
-      const data = {
-        colour: state.colour.id,
-        objects: state.objects.map((o) => {
-          const c: Record<string, unknown> = { type: o.type, x: o.x, y: o.y, scale: o.scale, rot: o.rot };
-          if (o.type === 'text') Object.assign(c, { text: o.text, font: o.font, color: o.color });
-          if (o.type === 'image') Object.assign(c, { src: o.src });
-          if (o.type === 'draw') Object.assign(c, { strokes: o.strokes });
-          return c;
-        }),
-      };
-      localStorage.setItem(STORE_KEY, JSON.stringify(data));
+      localStorage.setItem(STORE_KEY, JSON.stringify(designData(false)));
     } catch {
       /* storage full or blocked: the design still works, it just isn't kept */
     }
   }
   async function restore() {
-    let data: { colour?: string; objects?: Record<string, any>[] } | null = null;
+    let data: SavedDesign | null = null;
     try { data = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch { /* ignore */ }
-    if (!data) return;
-    const c = COLOURS.find((x) => x.id === data!.colour);
+    if (data) await loadData(data);
+  }
+  async function loadData(data: SavedDesign) {
+    const c = COLOURS.find((x) => x.id === data.colour);
     if (c) setShirt(c);
     for (const c of data.objects ?? []) {
       if (!zoneAt(c.x, c.y)) continue;
       if (c.type === 'text') state.objects.push(Object.assign(makeText(String(c.text), c.font in FONTS ? c.font : 'Anton', c.color, c.x, c.y, c.scale), { rot: c.rot }));
       else if (c.type === 'image') {
         const img = await loadImg(c.src).catch(() => null);
-        if (img) state.objects.push(Object.assign(makeImage(img, img, c.src, c.x, c.y, c.scale), { rot: c.rot }));
+        const full = c.full ? await loadImg(c.full).catch(() => null) : null;
+        if (img) state.objects.push(Object.assign(makeImage(img, full ?? img, c.src, c.x, c.y, c.scale), { rot: c.rot }));
       } else if (c.type === 'draw') {
         const o = makeDraw(c.x, c.y);
         Object.assign(o, { scale: c.scale, rot: c.rot, strokes: c.strokes || [] });
@@ -922,7 +933,7 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
   setZone('front', false);
   setMode('draw');
   syncSel();
-  restore().catch(() => {}).finally(() => { restored = true; onChange(summary()); });
+  const ready = restore().catch(() => {}).finally(() => { restored = true; onChange(summary()); });
   Promise.all(Object.keys(FONTS).map((f) => document.fonts.load(fontCss(f)).catch(() => {}))).then(() => {
     state.objects.forEach((o) => { if (o.type === 'text') measure(o); });
     dirty();
@@ -955,8 +966,22 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
     dirty();
   }
 
+  async function load(d: SavedDesign) {
+    await ready;
+    snapshot();
+    state.objects = [];
+    state.sel = null;
+    state.curDraw = null;
+    await loadData(d);
+    syncSel();
+    setZone('front', true);
+    dirty();
+    onChange(summary());
+  }
+
   return {
-    summary, printFiles, previews, showZone, startNew,
+    summary, printFiles, previews, showZone, startNew, load,
+    design: () => designData(true),
     dispose() {
       cancelAnimationFrame(raf);
       clearTimeout(saveTimer);

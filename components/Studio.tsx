@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import CartLink from './CartLink';
 import Wordmark from './Wordmark';
-import { addToCart } from '@/lib/cart';
-import { SIZES, ZONE_INFO, ZONES, type SizeId, type Zone } from '@/lib/design';
+import { addToCart, cartItem, replaceCartDesign } from '@/lib/cart';
+import { isSize, SIZES, ZONE_INFO, ZONES, type SizeId, type Zone } from '@/lib/design';
 import { FROM_PRICE, PRICES, quoteItem, rupee } from '@/lib/pricing';
 import type { StudioApi, StudioChange } from '@/lib/studio/engine';
 
@@ -32,16 +33,30 @@ export default function Studio() {
   const [size, setSize] = useState<SizeId | null>(null);
   const [addedSize, setAddedSize] = useState<SizeId | null>(null);
   const sizeDialog = useRef<HTMLDialogElement>(null);
+  const router = useRouter();
+  // /studio?edit=<cart item>: the design is opened from the cart and saved back over it
+  const [editId, setEditId] = useState<string | null>(null);
 
   useEffect(() => {
     let gone = false;
     let mounted: StudioApi | null = null;
+    const edit = new URLSearchParams(window.location.search).get('edit');
     import('@/lib/studio/engine')
       .then(({ mountStudio }) => mountStudio(rootRef.current!, (s) => !gone && setDesign(s)))
-      .then((a) => {
+      .then(async (a) => {
         if (gone) { a.dispose(); return; }
         mounted = api.current = a;
-        setState('ready');
+        if (edit) {
+          const it = await cartItem(edit).catch(() => undefined);
+          if (gone) return;
+          if (it?.design) {
+            await a.load(it.design);
+            setEditId(it.id);
+            setQty(it.qty);
+            setSize(isSize(it.size) ? it.size : null);
+          } else setAddError('That design is no longer in your cart, so this is a new design.');
+        }
+        if (!gone) setState('ready');
       })
       .catch(() => !gone && setState('error'));
     return () => {
@@ -76,7 +91,13 @@ export default function Studio() {
       const zoneFiles = await api.current.printFiles();
       const files: Record<string, Blob> = { ...(await api.current.previews()) };
       for (const [z, blob] of Object.entries(zoneFiles)) if (blob) files[z] = blob;
-      await addToCart({ colourId: now.colour.id, size, qty, prints: now.prints, files });
+      const design = api.current.design();
+      if (editId) {
+        await replaceCartDesign(editId, { colourId: now.colour.id, size, qty, prints: now.prints, files, design });
+        router.push('/cart');
+        return;
+      }
+      await addToCart({ colourId: now.colour.id, size, qty, prints: now.prints, files, design });
       setAddedSize(size);
       setAdded(true);
       setQty(1);
@@ -256,10 +277,11 @@ export default function Studio() {
                 <button onClick={() => setQty((n) => Math.min(PRICES.maxQty, n + 1))} aria-label="One more">+</button>
               </div>
               <button className="btn primary big" disabled={!prints.length || state !== 'ready' || adding} onClick={askSize}>
-                {adding ? 'Adding…' : prints.length ? `Add to cart · ${rupee(q.subtotal)}` : 'Add to cart'}
+                {adding ? (editId ? 'Saving…' : 'Adding…') : editId ? `Save changes · ${rupee(q.subtotal)}` : prints.length ? `Add to cart · ${rupee(q.subtotal)}` : 'Add to cart'}
               </button>
             </div>
           )}
+          {editId && !added && <p className="muted edit-note">You are editing a design from your cart. <Link href="/cart">Back to cart without saving</Link></p>}
         </div>
       </aside>
 
@@ -267,7 +289,7 @@ export default function Studio() {
         <h2 id="sizeTitle">Pick a size</h2>
         <div className="size-grid" role="radiogroup" aria-label="Shirt size">
           {SIZES.map((s) => (
-            <button key={s.id} data-size={s.id} role="radio" aria-checked={size === s.id} className={s.id === 'free' ? 'size-free' : ''} onClick={() => setSize(s.id)}>
+            <button key={s.id} data-size={s.id} role="radio" aria-checked={size === s.id} onClick={() => setSize(s.id)}>
               <strong>{s.label}</strong>
               <span>{s.fit}</span>
             </button>
@@ -277,7 +299,7 @@ export default function Studio() {
         <div className="co-actions">
           <button className="btn ghost" onClick={() => sizeDialog.current?.close()}>Back to design</button>
           <button className="btn primary" disabled={!size || adding} onClick={add}>
-            {qty > 1 ? `Add ${qty} to cart` : 'Add to cart'} · {rupee(q.subtotal)}
+            {editId ? 'Save changes' : qty > 1 ? `Add ${qty} to cart` : 'Add to cart'} · {rupee(q.subtotal)}
           </button>
         </div>
       </dialog>

@@ -11,7 +11,7 @@ function Shown({ c, note }: { c: Credentials; note: string }) {
         <tr><td>Login ID</td><td><code className="access">{c.loginId}</code></td></tr>
         <tr><td>Password</td><td><code className="access">{c.password}</code></td></tr>
       </tbody></table>
-      <p className="muted">Copy the password now. It is not shown again. If it gets lost, make a new one.</p>
+      <p className="muted">You can see this password again later with Show password on the merchant card below.</p>
     </div>
   );
 }
