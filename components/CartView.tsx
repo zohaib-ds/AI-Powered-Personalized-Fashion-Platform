@@ -42,6 +42,8 @@ export default function CartView({ upi }: { upi: boolean }) {
   if (items === null) return <p className="loading">Opening your cart…</p>;
 
   const q = quoteOrder(items);
+  // items from before free size was removed need a size first
+  const noSize = items.findIndex((it) => !isSize(it.size));
 
   async function changeQty(it: CartItem, n: number) {
     const qty = Math.min(PRICES.maxQty, Math.max(1, n));
@@ -83,7 +85,7 @@ export default function CartView({ upi }: { upi: boolean }) {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ items: items.map((i) => ({ colourId: i.colourId, size: i.size ?? 'free', qty: i.qty, prints: i.prints })), customer }),
+        body: JSON.stringify({ items: items.map((i) => ({ colourId: i.colourId, size: i.size, qty: i.qty, prints: i.prints })), customer }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not create the order.');
@@ -138,11 +140,13 @@ export default function CartView({ upi }: { upi: boolean }) {
                   <span className="muted">{colour?.name ?? it.colourId} tee · {iq.label}, {rupee(iq.each)} each</span>
                   <label className="ci-size">
                     <span>Size</span>
-                    <select value={it.size ?? 'free'} onChange={(e) => changeSize(it, e.target.value)} disabled={!!busy || step === 'details'} aria-label={`Size of design ${i + 1}`}>
-                      {SIZES.map((s) => <option key={s.id} value={s.id}>{s.id === 'free' ? s.label : `${s.label} (${s.fit.toLowerCase()})`}</option>)}
+                    <select value={isSize(it.size) ? it.size : ''} onChange={(e) => changeSize(it, e.target.value)} disabled={!!busy || step === 'details'} aria-label={`Size of design ${i + 1}`} aria-invalid={!isSize(it.size)}>
+                      {!isSize(it.size) && <option value="" disabled>Pick a size</option>}
+                      {SIZES.map((s) => <option key={s.id} value={s.id}>{`${s.label} (${s.fit.toLowerCase()})`}</option>)}
                     </select>
                   </label>
                   <span className="ci-links">
+                    {step === 'cart' && it.design && <Link className="link-btn" href={`/studio?edit=${it.id}`}>Edit design</Link>}
                     {step === 'cart' && items.length < PRICES.maxItems && <button className="link-btn" onClick={() => copy(it)} disabled={!!busy}>Add another size</button>}
                     <button className="link-btn" onClick={() => remove(it)} disabled={!!busy}>Remove</button>
                   </span>
@@ -207,7 +211,8 @@ export default function CartView({ upi }: { upi: boolean }) {
           <tr className="total"><td>Total</td><td>{rupee(q.total)}</td></tr>
         </tbody></table>
         <p className="note">Delivery is {rupee(PRICES.delivery.base)} for up to {PRICES.delivery.perShirts} shirts, then {rupee(PRICES.delivery.step)} more for every {PRICES.delivery.perShirts} shirts after that.</p>
-        {step === 'cart' && <button className="btn primary big" onClick={() => notice.current?.showModal()}>Checkout</button>}
+        {step === 'cart' && noSize >= 0 && <div className="err" role="alert">Pick a size for design {noSize + 1}.</div>}
+        {step === 'cart' && <button className="btn primary big" disabled={noSize >= 0} onClick={() => notice.current?.showModal()}>Checkout</button>}
       </aside>
 
       <dialog ref={notice} className="notice-dialog" aria-labelledby="noticeTitle">

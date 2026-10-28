@@ -114,6 +114,7 @@ export interface PrinterRow {
   access_code: string;
   login_id: string | null;
   password_hash: string | null;
+  password_enc?: string | null; // locked copy so the admin can see it (lib/printer-auth.ts)
   active: boolean;
   // pickup address and where to send their money, filled in by the merchant under Account
   address: string | null;

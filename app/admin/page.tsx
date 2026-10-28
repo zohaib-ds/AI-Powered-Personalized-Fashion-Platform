@@ -9,6 +9,7 @@ import { COLOURS, SIZES } from '@/lib/design';
 import { UTR_SENT } from '@/lib/payments';
 import { merchantMoney } from '@/lib/payouts';
 import { rupee } from '@/lib/pricing';
+import { openPassword } from '@/lib/printer-auth';
 import { pickupName, shiprocketMode, shiprocketOn } from '@/lib/shiprocket';
 import {
   addressText, ISSUE_LABEL, orderItems, orderPreview, payTo, signedLinks, STATUS_LABEL, supabaseAdmin,
@@ -58,7 +59,8 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
   const weekMargin = (start: number) => sold.filter((o) => weekly([o], 8).some((w) => w.start === start && w.orders)).reduce((s, o) => s + marginOf(o), 0);
   const colours = COLOURS.map((c) => [c.name, sold.reduce((s, o) => s + orderItems(o).filter((it) => it.colourId === c.id).reduce((n, it) => n + it.qty, 0), 0)] as const)
     .filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
-  const sizes = SIZES.map((z) => [z.label, sold.reduce((s, o) => s + orderItems(o).filter((it) => (it.size ?? 'free') === z.id).reduce((n, it) => n + it.qty, 0), 0)] as const)
+  // old orders may be free size, which can no longer be picked
+  const sizes = [{ id: 'free', label: 'Free size' }, ...SIZES].map((z) => [z.label, sold.reduce((s, o) => s + orderItems(o).filter((it) => (it.size ?? 'free') === z.id).reduce((n, it) => n + it.qty, 0), 0)] as const)
     .filter(([, n]) => n > 0);
 
   // the To do list
@@ -300,6 +302,9 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
                 {!p.password_hash && <div className="low">No password yet. Make one so this merchant can sign in.</div>}
               </div>
               <code className="access">{p.login_id ?? p.access_code}</code>
+              {p.password_hash && (openPassword(p.password_enc)
+                ? <details className="pw-show"><summary>Show password</summary><code className="access">{openPassword(p.password_enc)}</code></details>
+                : <span className="muted pw-none">Password not saved here. Tap New password to make one you can see.</span>)}
               <ResetPasswordForm id={p.id} />
               <form action={setPrinterActive}>
                 <input type="hidden" name="id" value={p.id} />

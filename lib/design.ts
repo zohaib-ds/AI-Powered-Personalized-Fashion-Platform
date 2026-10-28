@@ -69,9 +69,9 @@ export const COLOURS: Colour[] = [
 ];
 
 // Shirt sizes. Every size costs the same. Chest is the body measurement each size suits.
+// 'free' is only on old orders and cart items: the printers do not make a free size, so it can't be picked.
 export type SizeId = 'free' | 'S' | 'M' | 'L' | 'XL' | 'XXL';
 export const SIZES: { id: SizeId; label: string; fit: string }[] = [
-  { id: 'free', label: 'Free size', fit: 'Relaxed fit that suits most people' },
   { id: 'S', label: 'S', fit: 'Chest 36 to 38 in' },
   { id: 'M', label: 'M', fit: 'Chest 38 to 40 in' },
   { id: 'L', label: 'L', fit: 'Chest 40 to 42 in' },

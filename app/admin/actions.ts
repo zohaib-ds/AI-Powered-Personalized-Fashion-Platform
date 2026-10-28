@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { ADMIN_COOKIE, adminTokenValid } from '@/lib/admin-session';
-import { hashPassword, newLoginId, newPassword } from '@/lib/printer-auth';
+import { hashPassword, newLoginId, newPassword, sealPassword } from '@/lib/printer-auth';
 import { UTR_MISSING, UTR_SENT } from '@/lib/payments';
 import { bookShipment } from '@/lib/shiprocket';
 import { ISSUE_LABEL, stampStatus, STATUS_LABEL, supabaseAdmin, type OrderRow, type OrderStatus, type PrinterRow } from '@/lib/supabase-server';
@@ -69,10 +69,11 @@ export async function createPrinter(_prev: CredentialsResult, form: FormData): P
   for (let tries = 0; tries < 5; tries++) {
     const loginId = newLoginId();
     const password = newPassword();
-    const { error } = await db.from('printers').insert({
+    const { data: made, error } = await db.from('printers').insert({
       name, area: text(form, 'area', 120), phone: text(form, 'phone', 20), access_code: loginId, login_id: loginId, password_hash: hashPassword(password),
-    });
+    }).select('id').single();
     if (!error) {
+      await keepPassword(made.id, password);
       revalidatePath('/admin');
       return { name, loginId, password };
     }
@@ -81,6 +82,12 @@ export async function createPrinter(_prev: CredentialsResult, form: FormData): P
     if (error.code !== '23505') break;
   }
   return { error: saveError(last) };
+}
+
+// Saved apart from the insert, so a database that has not had schema.sql re-run still adds merchants;
+// the admin page then says the password was not kept.
+async function keepPassword(id: string, password: string) {
+  await supabaseAdmin().from('printers').update({ password_enc: sealPassword(password) }).eq('id', id);
 }
 
 // Makes a new password for a merchant (and signs them out everywhere).
@@ -96,6 +103,7 @@ export async function resetPrinterPassword(_prev: CredentialsResult, form: FormD
   const password = newPassword();
   const { error } = await db.from('printers').update({ password_hash: hashPassword(password), login_id: loginId }).eq('id', id);
   if (error) return { error: saveError(error) };
+  await keepPassword(id, password);
   revalidatePath('/admin');
   return { name: data.name, loginId, password };
 }
