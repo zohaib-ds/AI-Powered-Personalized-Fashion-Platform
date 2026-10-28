@@ -153,6 +153,7 @@ export default function Studio() {
           <span className="sep" />
           <button id="barDel" aria-label="Delete" className="del">{Icon.trash}</button>
         </div>
+        <button className="bgchip" id="barBg" hidden>Remove background</button>
         <div className="toast" id="toast" hidden role="status" />
         <div className="dock">
           <button className="icon-btn" id="undo" title="Undo" aria-label="Undo">{Icon.undo}</button>
@@ -210,7 +211,7 @@ export default function Studio() {
             {zonePicker('Where the image goes')}
             <label className="drop" id="drop">
               <input type="file" id="file" accept="image/*" />
-              <strong>Upload an image</strong><br />PNG with a transparent background prints best
+              <strong>Upload an image</strong><br />PNG with a transparent background prints best. You can also remove the background after uploading.
             </label>
           </div>
 
@@ -229,6 +230,10 @@ export default function Studio() {
                 <span className="val" id="selRotVal">0°</span>
               </div>
               <p className="quality" id="selQuality" />
+              <div className="row" id="selBgRow" hidden>
+                <button className="btn" id="selBg">Remove background</button>
+                <button className="btn" id="selBgAi" hidden>Try the AI cut-out</button>
+              </div>
               <div className="row">
                 <button className="btn" id="centreIt">Centre</button>
                 <button className="btn" id="toFront">Bring to front</button>

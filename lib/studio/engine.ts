@@ -7,6 +7,7 @@ import {
   CM_PER_IN, COLOURS, FONTS, PRINT_DPI, PX_PER_CM, TEX, ZONE_INFO, ZONES, zoneAt,
   type Colour, type PrintSummary, type Zone,
 } from '../design';
+import { aiCut, edgeKind, needsDownload, opaqueBox, plainCut } from './cutout';
 import { backdrop, createShirtScene, loadShirtGeometry, paintFabric, type ShirtScene } from './shirt';
 
 // screen-print style inks
@@ -33,7 +34,9 @@ type Mode = 'rotate' | 'move' | 'draw';
 interface Stroke { pts: number[][]; size: number; color: string; erase: boolean }
 interface Base { id: number; x: number; y: number; scale: number; rot: number; w: number; h: number }
 interface TextObj extends Base { type: 'text'; text: string; font: string; color: string }
-interface ImageObj extends Base { type: 'image'; img: HTMLImageElement; full: HTMLImageElement; src: string }
+// orig: the image before its background was removed, and how to put it back where it was
+interface Orig { img: HTMLImageElement; full: HTMLImageElement; src: string; r: number; lx: number; ly: number }
+interface ImageObj extends Base { type: 'image'; img: HTMLImageElement; full: HTMLImageElement; src: string; orig?: Orig; cut?: 'plain' | 'ai' }
 interface DrawObj extends Base {
   type: 'draw'; strokes: Stroke[]; ver: number;
   cache?: HTMLCanvasElement | null; cacheKey?: string; cb?: Bounds;
@@ -692,6 +695,7 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
     $('selEmpty').hidden = !!o;
     $('selCtl').hidden = !o;
     $('selBar').hidden = !show;
+    syncBg();
     $('selKind').textContent = o ? (o.type === 'text' ? `“${o.text.slice(0, 18)}”` : KIND[o.type]) : '';
     if (!o) return;
     const pct = Math.round(o.scale * 100), deg = Math.round((((o.rot * 180) / Math.PI + 540) % 360) - 180);
@@ -740,6 +744,106 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
   }
   $('del').onclick = del;
   $('barDel').onclick = del;
+
+  // remove background: a plain background is cut by colour straight away, anything else by AI.
+  // Nothing pops up: the button shows progress, and Undo or "Put background back" restores the image.
+  const bgBar = $<HTMLButtonElement>('barBg'), bgSel = $<HTMLButtonElement>('selBg'), bgAi = $<HTMLButtonElement>('selBgAi');
+  const bg = { busy: null as number | null, label: '', armed: null as number | null, mb: 0, timer: 0 };
+  function syncBg() {
+    const o = selected(), img = o?.type === 'image' ? o : null;
+    bgBar.hidden = !img || state.mode !== 'move';
+    $('selBgRow').hidden = !img;
+    if (!img) return;
+    const label = bg.busy === img.id ? bg.label
+      : bg.busy !== null ? 'Busy with another image…'
+      : img.orig ? 'Put background back'
+      : bg.armed === img.id ? `AI download, ${bg.mb} MB once. Tap again`
+      : 'Remove background';
+    for (const b of [bgBar, bgSel]) { b.textContent = label; b.disabled = bg.busy !== null; }
+    bgAi.hidden = img.cut !== 'plain' || bg.busy !== null;
+  }
+  const disarm = () => { clearTimeout(bg.timer); bg.armed = null; };
+  const nextPaint = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+  const sizeOf = (img: HTMLImageElement) => 360 / Math.max(img.naturalWidth, img.naturalHeight);
+
+  // back to the image as uploaded, keeping where it is now
+  function uncut(o: ImageObj) {
+    const g = o.orig;
+    if (!g) return;
+    const scale = o.scale * g.r, c = toWorld({ ...o, scale }, { x: -g.lx, y: -g.ly }), f = sizeOf(g.img);
+    Object.assign(o, { img: g.img, full: g.full, src: g.src, scale, x: c.x, y: c.y, w: g.img.naturalWidth * f, h: g.img.naturalHeight * f, orig: undefined, cut: undefined });
+  }
+  // use the cut image, trimmed to what is left, so the picture stays exactly where it was on the shirt
+  async function applyCut(id: number, cut: HTMLCanvasElement, kind: 'plain' | 'ai') {
+    const box = opaqueBox(cut);
+    if (!box) { toast('Nothing would be left after removing the background, so the image is unchanged.'); return false; }
+    const x0 = Math.max(0, box.x0 - 2), y0 = Math.max(0, box.y0 - 2);
+    const x1 = Math.min(cut.width, box.x1 + 2), y1 = Math.min(cut.height, box.y1 + 2);
+    const crop = document.createElement('canvas');
+    crop.width = x1 - x0;
+    crop.height = y1 - y0;
+    crop.getContext('2d')!.drawImage(cut, -x0, -y0);
+    // toBlob encodes off the main thread, so the page doesn't freeze on big images
+    const blob = await toBlob(crop);
+    const full = await loadImg(await new Promise<string>((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result));
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    }));
+    const img = await shrink(full, 1400);
+    const o = state.objects.find((x) => x.id === id);
+    if (!o || o.type !== 'image') return false;
+    snapshot();
+    uncut(o);
+    const k = o.w / cut.width, lx = ((x0 + x1) / 2 - cut.width / 2) * k, ly = ((y0 + y1) / 2 - cut.height / 2) * k;
+    const f = sizeOf(img), w = img.naturalWidth * f, h = img.naturalHeight * f, scale = ((x1 - x0) * k * o.scale) / w;
+    const c = toWorld(o, { x: lx, y: ly });
+    o.orig = { img: o.img, full: o.full, src: o.src, r: o.scale / scale, lx, ly };
+    Object.assign(o, { img, full, src: img.src, w, h, scale, x: c.x, y: c.y, cut: kind });
+    dirty();
+    return true;
+  }
+  async function removeBg(ai: boolean) {
+    const o = selected();
+    if (!o || o.type !== 'image' || bg.busy !== null) return;
+    if (o.orig && !ai) {
+      snapshot();
+      uncut(o);
+      syncSel();
+      dirty();
+      return;
+    }
+    const kind = ai ? 'busy' : edgeKind(o.img);
+    if (kind === 'clear') { toast('This image already has a see-through background.'); return; }
+    Object.assign(bg, { busy: o.id, label: 'Removing background…' });
+    syncBg();
+    try {
+      if (kind === 'busy') {
+        const mb = await needsDownload();
+        if (mb && bg.armed !== o.id) {
+          // the big model is a one time download, so a second tap confirms it
+          disarm();
+          Object.assign(bg, { armed: o.id, mb, timer: window.setTimeout(() => { bg.armed = null; syncBg(); }, 8000) });
+          return;
+        }
+      }
+      disarm();
+      await nextPaint();
+      const src = o.orig?.full ?? o.full;
+      const cut = kind === 'plain' ? plainCut(src) : await aiCut(src, (t) => { bg.label = t; syncBg(); });
+      if (await applyCut(o.id, cut, kind === 'plain' ? 'plain' : 'ai')) toast('Background removed. Undo brings it back.');
+    } catch (e) {
+      console.warn('Background removal failed', e);
+      toast("Couldn't remove the background. Check your internet and try again.");
+    } finally {
+      bg.busy = null;
+      syncSel();
+    }
+  }
+  bgBar.onclick = () => removeBg(false);
+  bgSel.onclick = () => removeBg(false);
+  bgAi.onclick = () => removeBg(true);
   const onKey = (e: KeyboardEvent) => {
     const a = document.activeElement as HTMLInputElement | null;
     const typing = !!a && /INPUT|SELECT|TEXTAREA/.test(a.tagName) && a.type !== 'range';
