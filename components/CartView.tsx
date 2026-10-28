@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { cartItems, clearCart, copyCartItem, removeFromCart, setCartQty, setCartSize, type CartItem } from '@/lib/cart';
-import { ADDRESS_FIELDS, COLOURS, isDelhiPincode, isMobile, isSize, mobileDigits, SIZES, type Address } from '@/lib/design';
+import { ADDRESS_FIELDS, COLOURS, isDelhiPincode, isMobile, isSize, mobileDigits, SIZES, TEST_SIZE, type Address, type SizeId } from '@/lib/design';
 import { PRICES, quoteOrder, rupee } from '@/lib/pricing';
 
 interface CreateResponse {
@@ -28,6 +28,12 @@ export default function CartView({ upi }: { upi: boolean }) {
   const notice = useRef<HTMLDialogElement>(null);
   const formTop = useRef<HTMLHeadingElement>(null);
 
+  // the ₹1 payment test size, only when the admin turned it on in this browser
+  const [testOn, setTestOn] = useState(false);
+  useEffect(() => { fetch('/api/test-size').then((r) => r.json()).then((d) => setTestOn(!!d.on)).catch(() => {}); }, []);
+  const okSize = (v: unknown) => isSize(v) || (testOn && v === 'test');
+  const sizes = testOn ? [...SIZES, TEST_SIZE] : SIZES;
+
   const load = () => cartItems().then(setItems).catch((e) => { setItems([]); setLoadError(e instanceof Error ? e.message : 'Could not open your cart.'); });
   useEffect(() => { load(); }, []);
 
@@ -43,7 +49,7 @@ export default function CartView({ upi }: { upi: boolean }) {
 
   const q = quoteOrder(items);
   // items from before free size was removed need a size first
-  const noSize = items.findIndex((it) => !isSize(it.size));
+  const noSize = items.findIndex((it) => !okSize(it.size));
 
   async function changeQty(it: CartItem, n: number) {
     const qty = Math.min(PRICES.maxQty, Math.max(1, n));
@@ -52,8 +58,8 @@ export default function CartView({ upi }: { upi: boolean }) {
     await load();
   }
   async function changeSize(it: CartItem, v: string) {
-    if (!isSize(v)) return;
-    await setCartSize(it.id, v);
+    if (!isSize(v) && !(testOn && v === 'test')) return;
+    await setCartSize(it.id, v as SizeId);
     await load();
   }
   async function copy(it: CartItem) {
@@ -140,9 +146,9 @@ export default function CartView({ upi }: { upi: boolean }) {
                   <span className="muted">{colour?.name ?? it.colourId} tee · {iq.label}, {rupee(iq.each)} each</span>
                   <label className="ci-size">
                     <span>Size</span>
-                    <select value={isSize(it.size) ? it.size : ''} onChange={(e) => changeSize(it, e.target.value)} disabled={!!busy || step === 'details'} aria-label={`Size of design ${i + 1}`} aria-invalid={!isSize(it.size)}>
-                      {!isSize(it.size) && <option value="" disabled>Pick a size</option>}
-                      {SIZES.map((s) => <option key={s.id} value={s.id}>{`${s.label} (${s.fit.toLowerCase()})`}</option>)}
+                    <select value={okSize(it.size) ? it.size : ''} onChange={(e) => changeSize(it, e.target.value)} disabled={!!busy || step === 'details'} aria-label={`Size of design ${i + 1}`} aria-invalid={!okSize(it.size)}>
+                      {!okSize(it.size) && <option value="" disabled>Pick a size</option>}
+                      {sizes.map((s) => <option key={s.id} value={s.id}>{`${s.label} (${s.fit.toLowerCase()})`}</option>)}
                     </select>
                   </label>
                   <span className="ci-links">

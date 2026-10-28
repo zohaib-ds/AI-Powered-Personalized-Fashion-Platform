@@ -34,3 +34,25 @@ export async function adminTokenValid(value: string | undefined, now = Date.now(
 export const adminCookieOptions = {
   httpOnly: true, sameSite: 'lax' as const, secure: process.env.NODE_ENV === 'production', path: '/admin', maxAge: ADMIN_IDLE_MS / 1000,
 };
+
+// ₹1 test size for trying a real payment. The admin turns it on from /admin for one hour,
+// only in their own browser; the order API refuses the test size without this cookie.
+export const TEST_COOKIE = 'ws_test';
+export const TEST_MS = 60 * 60 * 1000;
+
+export async function testToken(now = Date.now()): Promise<string> {
+  const until = String(now + TEST_MS);
+  return `${until}.${await hmac('test.' + until)}`;
+}
+
+// when the test size ends, or 0 when it is off
+export async function testUntil(value: string | undefined, now = Date.now()): Promise<number> {
+  if (!process.env.ADMIN_PASSWORD || !value) return 0;
+  const [until, sig] = value.split('.');
+  if (!/^\d+$/.test(until ?? '') || !sig || Number(until) <= now) return 0;
+  return sameText(sig, await hmac('test.' + until)) ? Number(until) : 0;
+}
+
+export const testCookieOptions = {
+  httpOnly: true, sameSite: 'lax' as const, secure: process.env.NODE_ENV === 'production', path: '/', maxAge: TEST_MS / 1000,
+};
