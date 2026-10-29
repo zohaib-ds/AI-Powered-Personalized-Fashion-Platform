@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { giveToOnlyMerchant } from '@/lib/auto-assign';
 import { samplePay, upiOn } from '@/lib/payments';
 import { stampStatus, supabaseAdmin } from '@/lib/supabase-server';
 
@@ -23,5 +24,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const { error } = await db.from('orders').update({ status: 'paid', payment_ref: result.reference, status_times: stampStatus(order.status_times, 'paid') }).eq('id', id).eq('status', 'pending_payment');
   if (error) return NextResponse.json({ error: 'Could not confirm payment.' }, { status: 500 });
+  await giveToOnlyMerchant(id);
   return NextResponse.json({ ok: true, status: 'paid' });
 }

@@ -1,5 +1,5 @@
 import 'server-only';
-import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomInt, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { supabaseAdmin, type PrinterRow } from './supabase-server';
 
@@ -52,12 +52,6 @@ export function openPassword(sealed: string | null | undefined): string | null {
     return null;
   }
 }
-
-const ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const PW_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';
-const pick = (chars: string, n: number) => Array.from({ length: n }, () => chars[randomInt(chars.length)]).join('');
-export const newLoginId = () => 'WS-' + pick(ID_CHARS, 6);
-export const newPassword = () => `${pick(PW_CHARS, 4)}-${pick(PW_CHARS, 4)}-${pick(PW_CHARS, 4)}`;
 
 export async function startPrinterSession(p: Pick<PrinterRow, 'id' | 'password_hash'>) {
   (await cookies()).set(COOKIE, `${p.id}.${sign(p.id, p.password_hash)}`, {

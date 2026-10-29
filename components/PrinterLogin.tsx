@@ -11,7 +11,7 @@ export default function PrinterLogin() {
       <p className="muted">Sign in with the login ID and password the WearSketch team gave you to see the shirts waiting for you.</p>
       <div className="field">
         <label htmlFor="login_id">Login ID</label>
-        <input className="inp code-inp" id="login_id" name="login_id" required autoComplete="username" autoCapitalize="characters" placeholder="WS-XXXXXX" />
+        <input className="inp code-inp" id="login_id" name="login_id" required autoComplete="username" autoCapitalize="characters" />
       </div>
       <div className="field">
         <label htmlFor="password">Password</label>

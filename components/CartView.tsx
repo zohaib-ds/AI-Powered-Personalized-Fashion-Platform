@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { cartItems, clearCart, copyCartItem, removeFromCart, setCartQty, setCartSize, type CartItem } from '@/lib/cart';
 import { ADDRESS_FIELDS, COLOURS, isDelhiPincode, isMobile, isSize, mobileDigits, SIZES, TEST_SIZE, type Address, type SizeId } from '@/lib/design';
+import { rememberOrder } from '@/lib/my-orders';
 import { PRICES, quoteOrder, rupee } from '@/lib/pricing';
 
 interface CreateResponse {
@@ -96,6 +97,7 @@ export default function CartView({ upi }: { upi: boolean }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not create the order.');
       const order = data as CreateResponse;
+      rememberOrder(order.orderId);
 
       setBusy('Uploading print files…');
       const puts = items.flatMap((it, i) => Object.entries(it.files).map(([key, blob]) => {

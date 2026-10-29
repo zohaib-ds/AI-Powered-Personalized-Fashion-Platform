@@ -922,11 +922,36 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
   }
 
   // ---------- outputs for the order ----------
+  // A drawing or text counts as a print only when some of its ink lands inside its print box, so a
+  // drawing that was rubbed out, or text that is only spaces, makes no print file and costs nothing.
+  const inkSeen = new WeakMap<Obj, { key: string; ink: boolean }>();
+  function hasInk(o: DrawObj | TextObj, z: Zone) {
+    const key = [z, o.x, o.y, o.scale, o.rot, o.type === 'draw' ? `${o.ver}:${o.strokes.length}:${o.strokes[o.strokes.length - 1]?.pts.length ?? 0}` : `${o.text}|${o.font}|${o.color}`].join('|');
+    const seen = inkSeen.get(o);
+    if (seen?.key === key) return seen.ink;
+    const b = ZONE_INFO[z], k = 0.5;
+    const c = document.createElement('canvas');
+    c.width = Math.ceil(b.w * k);
+    c.height = Math.ceil(b.h * k);
+    const g = c.getContext('2d', { willReadFrequently: true })!;
+    g.scale(k, k);
+    g.translate(-b.x, -b.y);
+    drawObj(g, o);
+    let ink = true;
+    try {
+      const a = g.getImageData(0, 0, c.width, c.height).data;
+      ink = false;
+      for (let i = 3; i < a.length; i += 4) if (a[i] > 8) { ink = true; break; }
+    } catch { /* could not read it back: keep it as a print */ }
+    inkSeen.set(o, { key, ink });
+    return ink;
+  }
+
   function summary(): StudioChange {
     const prints: PrintSummary[] = [];
     for (const o of state.objects) {
       const z = zoneOf(o);
-      if (!z || (o.type === 'draw' && !o.w)) continue;
+      if (!z || (o.type === 'draw' && !o.w) || (o.type !== 'image' && !hasInk(o, z))) continue;
       const b = ZONE_INFO[z], cm = cmOf(o);
       const p: PrintSummary = {
         type: o.type, zone: z,

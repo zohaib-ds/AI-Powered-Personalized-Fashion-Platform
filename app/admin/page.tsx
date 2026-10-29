@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import AdminIdle from '@/components/AdminIdle';
-import { AddMerchantForm, ResetPasswordForm } from '@/components/AdminForms';
+import { AddMerchantForm, MerchantDetailsForm, MerchantLoginForm } from '@/components/AdminForms';
 import PortalHeader from '@/components/PortalHeader';
 import PrintSpec, { Stars } from '@/components/PrintSpec';
 import Tabs, { OrderFilter } from '@/components/Tabs';
 import { weekLabel, weekly } from '@/lib/analytics';
 import { TEST_COOKIE, testUntil } from '@/lib/admin-session';
+import { BRAND } from '@/lib/brand';
 import { COLOURS, SIZES } from '@/lib/design';
 import { UTR_SENT } from '@/lib/payments';
 import { merchantMoney } from '@/lib/payouts';
@@ -107,13 +108,15 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
       {toCheck.length > 0 && (
         <section className="card">
           <h3>Check UPI payments</h3>
-          <p className="muted">Open the bank or UPI app for the UPI ID customers pay to. Find each reference number and check the amount before you confirm.</p>
+          <p className="muted">Open the bank or UPI app for the UPI ID customers pay to. Find each payment by its reference number, or by the amount and the note with the order number, and check the amount before you confirm.</p>
           {toCheck.map((o) => (
             <div key={o.id} className="todo-row">
               <div className="todo-main">
                 {thumb(o)}
                 <div>
-                  <strong>{rupee(o.total)}</strong> for #{codeOf(o)} · UPI ref <code>{o.payment_ref!.slice(UTR_SENT.length)}</code>
+                  <strong>{rupee(o.total)}</strong> for #{codeOf(o)} · {o.payment_ref!.slice(UTR_SENT.length)
+                    ? <>UPI ref <code>{o.payment_ref!.slice(UTR_SENT.length)}</code></>
+                    : <>no reference number, look for the note “{BRAND.name} order {codeOf(o)}”</>}
                   <div className="muted">{o.customer_name}, {o.phone} · ordered {fmt(o.created_at)}</div>
                 </div>
               </div>
@@ -318,25 +321,26 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
               <div>
                 <strong>{p.name}</strong> <span className="muted">{p.area}{p.phone ? ` · ${p.phone}` : ''}{p.active ? '' : ' · turned off'}</span>
                 <div className="muted">{plural(mine.length, 'order')} · {rupee(money.available)} to withdraw · {rs.length ? <><Stars n={Math.round(avg)} size={12} /> {avg.toFixed(1)} from {rs.length}</> : 'no reviews yet'}</div>
-                {!p.password_hash && <div className="low">No password yet. Make one so this merchant can sign in.</div>}
+                {!p.password_hash && <div className="low">No password yet. Set one under Change login ID or password so this merchant can sign in.</div>}
               </div>
               <code className="access">{p.login_id ?? p.access_code}</code>
               {p.password_hash && (openPassword(p.password_enc)
                 ? <details className="pw-show"><summary>Show password</summary><code className="access">{openPassword(p.password_enc)}</code></details>
-                : <span className="muted pw-none">Password not saved here. Tap New password to make one you can see.</span>)}
-              <ResetPasswordForm id={p.id} />
+                : <span className="muted pw-none">Password not saved here. Set it again under Change login ID or password to see it.</span>)}
               <form action={setPrinterActive}>
                 <input type="hidden" name="id" value={p.id} />
                 <input type="hidden" name="active" value={String(!p.active)} />
                 <button className="btn small">{p.active ? 'Turn off' : 'Turn on'}</button>
               </form>
             </div>
+            <MerchantLoginForm id={p.id} loginId={p.login_id ?? p.access_code} />
             <details className="more">
-              <summary>Details and delete</summary>
+              <summary>Address, payout and delete</summary>
               <table className="kv"><tbody>
-                <tr><td>Pickup address</td><td>{p.address ? `${p.address}, ${p.city ?? ''} ${p.pincode ?? ''}` : 'Not added yet (the merchant adds it under Account)'}</td></tr>
+                <tr><td>Pickup address</td><td>{p.address ? `${p.address}, ${p.city ?? ''} ${p.pincode ?? ''}` : 'Not added yet'}</td></tr>
                 <tr><td>Pay to</td><td>{payTo(p) ?? 'Not added yet'}</td></tr>
               </tbody></table>
+              <MerchantDetailsForm p={p} />
               <form action={setShiprocketPickup} className="inline-form">
                 <input type="hidden" name="id" value={p.id} />
                 <label htmlFor={`sp-${p.id}`}>Shiprocket pickup name</label>

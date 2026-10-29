@@ -19,7 +19,7 @@ export default function ReviewForm({ orderId, rating = 0, comment = '' }: { orde
         ))}
         <span className="muted">{LABELS[hover || n]}</span>
       </div>
-      <textarea className="inp" name="comment" rows={3} defaultValue={comment} placeholder="How did the print and the shirt turn out?" maxLength={800} />
+      <textarea className="inp" name="comment" rows={5} defaultValue={comment} placeholder="How did the print and the shirt turn out?" maxLength={800} />
       <button className="btn primary" disabled={!n}>{rating ? 'Update review' : 'Send review'}</button>
     </form>
   );
