@@ -26,19 +26,21 @@ export default function UpiPay({ orderId, amount, qr, link, upiId, payee, missin
         <ol className="upi-steps">
           <li>Scan the QR code with any UPI app, such as Google Pay, PhonePe, Paytm or BHIM. If you are on your phone, tap <strong>Open UPI app</strong> instead.</li>
           <li>Check that the amount is {amount} and pay.</li>
-          <li>Find the 12 digit <strong>UPI reference number</strong> (also called UTR or UPI transaction ID) in your UPI app, and enter it below.</li>
+          <li>Tap <strong>I have paid</strong>. We match your payment to this order and confirm it. Adding the 12 digit UPI reference number from your UPI app helps us find it faster, but you can leave it empty.</li>
         </ol>
         <a className="btn upi-open" href={link}>Open UPI app</a>
         <p className="muted upi-id">
           Paying to <strong>{payee}</strong>, UPI ID <code>{upiId}</code>{' '}
           <button type="button" className="btn small ghost" onClick={copy}>{copied ? 'Copied' : 'Copy UPI ID'}</button>
         </p>
-        {missing && <div className="err" role="alert">We could not find a payment with reference number {missing}. Check the number in your UPI app and enter it again.</div>}
+        {missing !== null && <div className="err" role="alert">{missing
+          ? `We could not find a payment with reference number ${missing}. Check the number in your UPI app and enter it again.`
+          : 'We could not find your payment yet. Enter the 12 digit UPI reference number from your UPI app so we can find it.'}</div>}
         <form action={action} className="upi-form">
           <input type="hidden" name="id" value={orderId} />
-          <label htmlFor="utr">UPI reference number</label>
+          <label htmlFor="utr">UPI reference number{missing === null && <span className="muted"> (optional)</span>}</label>
           <div className="upi-row">
-            <input id="utr" name="utr" className="inp" inputMode="numeric" autoComplete="off" maxLength={14} placeholder="12 digits" required />
+            <input id="utr" name="utr" className="inp" inputMode="numeric" autoComplete="off" maxLength={14} placeholder="12 digits" required={missing !== null} />
             <Submit />
           </div>
           {error && <div className="err" role="alert">{error}</div>}

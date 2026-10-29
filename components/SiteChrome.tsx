@@ -11,7 +11,7 @@ export function SiteHeader() {
         <nav className="site-nav" aria-label="Main">
           <Link href="/#how">How it works</Link>
           <Link href="/#pricing">Pricing</Link>
-          <Link href="/track">Track order</Link>
+          <Link href="/track">My orders</Link>
           <Link href="/help">Help</Link>
         </nav>
         <CartLink className="header-cart" />
@@ -28,6 +28,7 @@ export function SiteFooter() {
         <div className="footer-brand">
           <Wordmark size={20} light />
           <p className="muted">Custom T-shirts you design in 3D. We print them and deliver them to your door.</p>
+          {BRAND.email && <a className="footer-mail" href={`mailto:${BRAND.email}`}>{BRAND.email}</a>}
         </div>
         <div className="footer-cols">
           <div>
@@ -39,7 +40,7 @@ export function SiteFooter() {
           <div>
             <h4>Orders</h4>
             <Link href="/cart">Your cart</Link>
-            <Link href="/track">Track your order</Link>
+            <Link href="/track">My orders</Link>
             <Link href="/help">Help and FAQ</Link>
             <Link href="/policies">Shipping and reprints</Link>
           </div>

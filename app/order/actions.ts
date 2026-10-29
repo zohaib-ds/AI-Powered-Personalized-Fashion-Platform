@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { supabaseAdmin } from '@/lib/supabase-server';
+import { supabaseAdmin, type OrderStatus } from '@/lib/supabase-server';
 import { mobileDigits } from '@/lib/design';
 
 // Customers review from their own order page. The order link is the proof of purchase.
@@ -27,4 +27,27 @@ export async function trackOrder(_prev: string | null, form: FormData): Promise<
   const { data } = await supabaseAdmin().from('orders').select('id,phone').eq('code', code).maybeSingle();
   if (!data || String(data.phone).replace(/\D/g, '').slice(-10) !== digits) return 'We could not find that order. Check the number on your order confirmation.';
   redirect(`/order/${data.id}`);
+}
+
+export interface MyOrder { id: string; code: string; state: string; total: number; createdAt: string }
+
+const CUSTOMER_STATE: Record<OrderStatus, string> = {
+  pending_payment: 'Waiting for payment',
+  paid: 'Order placed',
+  sent_to_printer: 'Printing',
+  printed: 'Printed',
+  pickup_requested: 'Printed',
+  shipped: 'On the way',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+};
+
+// "My orders": the orders this browser placed. The order id works like the order page link, so it is the proof.
+export async function myOrders(ids: string[]): Promise<MyOrder[]> {
+  const want = (Array.isArray(ids) ? ids : []).filter((v) => typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v)).slice(0, 20);
+  if (!want.length) return [];
+  const { data } = await supabaseAdmin().from('orders').select('id,code,status,total,created_at').in('id', want).order('created_at', { ascending: false });
+  return (data ?? []).map((o) => ({
+    id: o.id, code: o.code ?? String(o.id).slice(0, 8).toUpperCase(), state: CUSTOMER_STATE[o.status as OrderStatus] ?? 'Order placed', total: o.total, createdAt: o.created_at,
+  }));
 }

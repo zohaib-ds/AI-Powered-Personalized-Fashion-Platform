@@ -7,6 +7,6 @@ export const BRAND = {
   logoLight: '/logo-mark-light.png',
   tagline: 'Sketch it in 3D. We print it and deliver it to your door.',
   city: 'Delhi', // the only delivery area for now; shown only at checkout
-  email: '', // support email shown on the help page, e.g. 'hello@yourdomain.com'
+  email: 'wearsketchh@gmail.com', // support email shown on the help, about, privacy and terms pages and in the footer
   whatsapp: '', // e.g. '919876543210' to show a WhatsApp button on the help page
 };
