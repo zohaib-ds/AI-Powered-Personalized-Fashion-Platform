@@ -31,13 +31,13 @@ export default function Tabs({ tabs, initial, panels }: { tabs: { key: string; l
   );
 }
 
-// Status filter for a list of orders: each child carries data-s="<status>".
-export function OrderFilter({ options, children }: { options: { key: string; label: string }[]; children: React.ReactNode }) {
-  const [f, setF] = useState('');
+// Filter for a list of orders: each child carries data-g="<group>", and '' shows them all.
+export function OrderFilter({ options, initial = '', children }: { options: { key: string; label: string }[]; initial?: string; children: React.ReactNode }) {
+  const [f, setF] = useState(initial);
   return (
     <>
       <div className="filters">
-        {[{ key: '', label: 'All' }, ...options].map((o) => (
+        {options.map((o) => (
           <button key={o.key} type="button" className={f === o.key ? 'on' : ''} aria-pressed={f === o.key} onClick={() => setF(o.key)}>{o.label}</button>
         ))}
       </div>

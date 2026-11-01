@@ -9,18 +9,18 @@ import { weekLabel, weekly } from '@/lib/analytics';
 import { TEST_COOKIE, testUntil } from '@/lib/admin-session';
 import { BRAND } from '@/lib/brand';
 import { COLOURS, SIZES } from '@/lib/design';
-import { UTR_SENT } from '@/lib/payments';
+import { COD_REF, UTR_SENT } from '@/lib/payments';
 import { merchantMoney } from '@/lib/payouts';
 import { rupee } from '@/lib/pricing';
 import { openPassword } from '@/lib/printer-auth';
-import { pickupName, shiprocketMode, shiprocketOn } from '@/lib/shiprocket';
+import { icarryMode, icarryOn } from '@/lib/icarry';
 import {
   addressText, ISSUE_LABEL, orderItems, orderPreview, payTo, signedLinks, STATUS_LABEL, supabaseAdmin,
-  type OrderRow, type OrderStatus, type PayoutRow, type PrinterRow, type ReviewRow,
+  type OrderRow, type PayoutRow, type PrinterRow, type ReviewRow,
 } from '@/lib/supabase-server';
 import {
-  assignOrder, deletePrinter, markDelivered, markShipped, retryShiprocket, setPrinterActive, setReviewPublic,
-  payoutPaid, payoutRejected, paymentMissing, paymentReceived, setShiprocketPickup, startPaymentTest, stopPaymentTest, updateOrder,
+  assignOrder, cancelUnpaid, deletePrinter, markDelivered, markShipped, retryCourier, setPrinterActive, setReviewPublic,
+  payoutPaid, payoutRejected, paymentMissing, paymentReceived, setPickupId, startPaymentTest, stopPaymentTest, updateOrder,
 } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -32,6 +32,8 @@ const counted = (o: OrderRow) => o.status !== 'pending_payment' && o.status !== 
 const marginOf = (o: OrderRow) => o.total - (o.printer_cost ?? 0) - (o.price?.shipping ?? 0) - (o.refund_amount ?? 0);
 const codeOf = (o: OrderRow) => o.code ?? o.id.slice(0, 8).toUpperCase();
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+// the Orders tab filter: open work first, finished and cancelled orders out of the way
+const groupOf = (o: OrderRow) => (o.status === 'pending_payment' ? 'unpaid' : o.status === 'delivered' ? 'done' : o.status === 'cancelled' ? 'cancelled' : 'open');
 
 export default async function Admin({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const sp = await searchParams;
@@ -94,7 +96,7 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
         {testEnds ? (
           <>
             <p>The <strong>Test ₹1</strong> size is on in this browser until {new Date(testEnds).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit' })} India time. Customers never see it.</p>
-            <p className="muted">Open the studio, make a design, tap Add to cart and pick Test ₹1. Checkout costs ₹1 with no delivery. After the payment shows here, cancel that order in the Orders tab so no merchant prints it.</p>
+            <p className="muted">Open the studio, make a design, tap Add to cart and pick Test ₹1. Checkout costs ₹1 with no delivery. The test order never goes to the merchant. After the payment shows here, tap Cancel order on it.</p>
             <form action={stopPaymentTest}><button className="btn small ghost">Turn off ₹1 test</button></form>
           </>
         ) : (
@@ -117,12 +119,13 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
                   <strong>{rupee(o.total)}</strong> for #{codeOf(o)} · {o.payment_ref!.slice(UTR_SENT.length)
                     ? <>UPI ref <code>{o.payment_ref!.slice(UTR_SENT.length)}</code></>
                     : <>no reference number, look for the note “{BRAND.name} order {codeOf(o)}”</>}
-                  <div className="muted">{o.customer_name}, {o.phone} · ordered {fmt(o.created_at)}</div>
+                  <div className="muted">{o.customer_name}, {o.phone} · ordered {fmt(o.created_at)}{o.status_times?.payment_claimed ? ` · said paid ${fmt(o.status_times.payment_claimed)}` : ''}</div>
                 </div>
               </div>
               <div className="todo-act">
                 <form action={paymentReceived}><input type="hidden" name="id" value={o.id} /><button className="btn primary small">Money received</button></form>
-                <form action={paymentMissing}><input type="hidden" name="id" value={o.id} /><button className="btn small ghost">Not found</button></form>
+                <form action={paymentMissing}><input type="hidden" name="id" value={o.id} /><button className="btn small ghost">Not found, ask again</button></form>
+                <form action={cancelUnpaid}><input type="hidden" name="id" value={o.id} /><button className="btn small ghost">Cancel order</button></form>
               </div>
             </div>
           ))}
@@ -184,16 +187,16 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
                   <div>
                     <strong>#{codeOf(o)}</strong> from {o.printer_id ? printerName[o.printer_id] ?? 'a merchant' : 'a merchant'}{o.pickup_requested_at ? `, ${fmt(o.pickup_requested_at)}` : ''}
                     <div className="muted">
-                      {sr?.error ? <span className="low">Shiprocket: {sr.error}</span>
-                        : sr?.awb ? <>Courier booked: {sr.courier ?? 'Shiprocket'}, AWB {sr.awb}{sr.label_url ? <> · <a href={sr.label_url} target="_blank" rel="noreferrer">Label</a></> : null}</>
-                        : sr?.shipment_id ? <>Test order made in Shiprocket (shipment {sr.shipment_id}). No courier booked.</>
-                        : shiprocketOn() ? 'Not sent to Shiprocket yet.' : 'Book the courier, then mark it shipped with the tracking number.'}
+                      {sr?.error ? <span className="low">iCarry: {sr.error}</span>
+                        : sr?.awb ? <>Courier booked: {sr.courier ?? 'iCarry'}, AWB {sr.awb}{sr.label_url ? <> · <a href={sr.label_url} target="_blank" rel="noreferrer">Label</a></> : null}{sr.status ? ` · ${sr.status}` : ''}</>
+                        : sr?.shipment_id ? <>Test shipment saved in iCarry (shipment {sr.shipment_id}). No courier booked.</>
+                        : icarryOn() ? 'Not sent to iCarry yet.' : 'Book the courier, then mark it shipped with the tracking number.'}
                     </div>
                   </div>
                 </div>
                 <div className="todo-act">
-                  {shiprocketOn() && (sr?.error || !sr?.shipment_id || (shiprocketMode() === 'live' && !sr?.awb)) && (
-                    <form action={retryShiprocket}><input type="hidden" name="id" value={o.id} /><button className="btn small">Send to Shiprocket</button></form>
+                  {icarryOn() && (sr?.error || !sr?.shipment_id || (icarryMode() === 'live' && !sr?.awb)) && (
+                    <form action={retryCourier}><input type="hidden" name="id" value={o.id} /><button className="btn small">Book iCarry again</button></form>
                   )}
                   <form action={markShipped} className="todo-act">
                     <input type="hidden" name="id" value={o.id} />
@@ -228,13 +231,14 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
   );
 
   const ordersPanel = (
-    <OrderFilter options={(Object.keys(STATUS_LABEL) as OrderStatus[]).map((s) => ({ key: s, label: `${STATUS_LABEL[s]} (${orders.filter((o) => o.status === s).length})` }))}>
+    <OrderFilter initial="open" options={([['open', 'Open'], ['unpaid', 'Waiting for payment'], ['done', 'Delivered'], ['cancelled', 'Cancelled'], ['', 'All']] as const)
+      .map(([key, label]) => ({ key, label: `${label} (${key ? orders.filter((o) => groupOf(o) === key).length : orders.length})` }))}>
       {!listed.length && !error && <div className="card empty">No orders yet.</div>}
       {listed.map((o) => {
         const r = reviewOf[o.id];
         const items = orderItems(o);
         return (
-          <details key={o.id} data-s={o.status} className="card admin-order">
+          <details key={o.id} data-g={groupOf(o)} className="card admin-order">
             <summary>
               {thumb(o)}
               <span className="ao-main">
@@ -259,9 +263,10 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
                   <tr><td>Address</td><td>{addressText(o)}, {o.pincode}</td></tr>
                   <tr><td>Paid</td><td>{rupee(o.total)} {o.payment_ref && <span className="muted">({o.payment_ref})</span>}</td></tr>
                   <tr><td>Delivery fee</td><td>{rupee(o.price?.shipping ?? 0)}</td></tr>
+                  {o.payment_ref === COD_REF && <tr><td>Cash on delivery</td><td>Courier collects {rupee(o.total)}, fee {rupee(o.price?.cod_fee ?? 0)}</td></tr>}
                   <tr><td>Merchant rate</td><td>{rupee(o.printer_cost ?? 0)}</td></tr>
                   {o.pickup_requested_at && <tr><td>Pickup requested</td><td>{fmt(o.pickup_requested_at)}</td></tr>}
-                  {o.shiprocket && <tr><td>Shiprocket</td><td>{o.shiprocket.error ? <span className="low">{o.shiprocket.error}</span> : o.shiprocket.awb ? `AWB ${o.shiprocket.awb}${o.shiprocket.courier ? `, ${o.shiprocket.courier}` : ''}` : `Shipment ${o.shiprocket.shipment_id ?? ''} (${o.shiprocket.mode})`}</td></tr>}
+                  {o.shiprocket && <tr><td>iCarry</td><td>{o.shiprocket.error ? <span className="low">{o.shiprocket.error}</span> : o.shiprocket.awb ? `AWB ${o.shiprocket.awb}${o.shiprocket.courier ? `, ${o.shiprocket.courier}` : ''}` : `Shipment ${o.shiprocket.shipment_id ?? ''} (${o.shiprocket.mode})`}</td></tr>}
                   {o.printer_note && <tr><td>Merchant note</td><td>{o.printer_note}</td></tr>}
                   {r && <tr><td>Review</td><td><Stars n={r.rating} size={13} /> {r.comment}</td></tr>}
                 </tbody></table>
@@ -341,10 +346,10 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
                 <tr><td>Pay to</td><td>{payTo(p) ?? 'Not added yet'}</td></tr>
               </tbody></table>
               <MerchantDetailsForm p={p} />
-              <form action={setShiprocketPickup} className="inline-form">
+              <form action={setPickupId} className="inline-form">
                 <input type="hidden" name="id" value={p.id} />
-                <label htmlFor={`sp-${p.id}`}>Shiprocket pickup name</label>
-                <input className="inp" id={`sp-${p.id}`} name="shiprocket_pickup" defaultValue={p.shiprocket_pickup ?? ''} placeholder={pickupName(p)} maxLength={36} />
+                <label htmlFor={`sp-${p.id}`}>iCarry pickup address ID</label>
+                <input className="inp" id={`sp-${p.id}`} name="pickup_id" inputMode="numeric" defaultValue={/^\d+$/.test(p.shiprocket_pickup ?? '') ? p.shiprocket_pickup! : ''} placeholder="Made for you when the address is saved" maxLength={12} />
                 <button className="btn small">Save</button>
               </form>
               <details className="confirm">

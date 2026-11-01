@@ -21,8 +21,8 @@ export type OrderStatus = 'pending_payment' | 'paid' | 'sent_to_printer' | 'prin
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {
   pending_payment: 'Waiting for payment',
-  paid: 'Paid',
-  sent_to_printer: 'With the printer',
+  paid: 'Confirmed',
+  sent_to_printer: 'Printing',
   printed: 'Printed',
   pickup_requested: 'Pickup requested',
   shipped: 'Shipped',
@@ -30,9 +30,16 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
   cancelled: 'Cancelled',
 };
 
-// the customer-facing journey, in order. A pickup request still shows as "Printed" to the customer.
-export const JOURNEY: OrderStatus[] = ['paid', 'sent_to_printer', 'printed', 'shipped', 'delivered'];
-export const journeyIndex = (s: OrderStatus) => JOURNEY.indexOf(s === 'pickup_requested' ? 'printed' : s);
+// The steps the customer sees on the order page. "paid" means the order is confirmed: the payment
+// was checked, or it is cash on delivery. A confirmed order waits with the merchant until they start
+// printing it. A pickup request still shows as "Printed".
+export const JOURNEY = ['placed', 'payment', 'paid', 'sent_to_printer', 'printed', 'shipped', 'delivered'] as const;
+export type JourneyStep = (typeof JOURNEY)[number];
+export function journeyIndex(o: Pick<OrderRow, 'status' | 'status_times'>): number {
+  if (o.status === 'cancelled') return -1;
+  if (o.status === 'pending_payment') return o.status_times?.payment_claimed ? 1 : 0;
+  return JOURNEY.indexOf(o.status === 'pickup_requested' ? 'printed' : o.status as JourneyStep);
+}
 
 
 // After-sale problems the admin records on an order.
@@ -67,7 +74,7 @@ export interface OrderRow {
   qty: number;
   design: DesignSummary;
   items: OrderItem[] | null;
-  price: { lines?: { label: string; amount: number }[]; each?: number; subtotal: number; shipping: number; total: number; cost?: number };
+  price: { lines?: { label: string; amount: number }[]; each?: number; subtotal: number; shipping: number; cod_fee?: number; total: number; cost?: number };
   total: number;
   files: Record<string, string>;
   payment_ref: string | null;
@@ -77,11 +84,12 @@ export interface OrderRow {
   tracking: string | null;
   notes: string | null;
   pickup_requested_at: string | null;
-  status_times: Partial<Record<OrderStatus, string>> | null;
+  // when the order first reached each status; payment_claimed is when the customer tapped I have paid
+  status_times: Partial<Record<OrderStatus | 'payment_claimed', string>> | null;
   issue: OrderIssue | null;
   issue_note: string | null;
   refund_amount: number | null;
-  shiprocket: ShiprocketInfo | null;
+  shiprocket: ShipInfo | null; // the courier booking (iCarry); the column is named after the courier used before
 }
 
 // Orders placed before the cart have one design in the old columns. This gives every order the same shape.
@@ -124,18 +132,19 @@ export interface PrinterRow {
   account_number: string | null;
   ifsc: string | null;
   upi_id: string | null;
-  shiprocket_pickup: string | null; // the pickup location name in Shiprocket
+  shiprocket_pickup: string | null; // the merchant's iCarry pickup address ID (column named after the courier used before)
 }
 
-// what Shiprocket gave back when the merchant requested a pickup
-export interface ShiprocketInfo {
+// what the courier company gave back when the merchant requested a pickup
+export interface ShipInfo {
+  carrier?: 'icarry'; // missing on bookings made with Shiprocket before
   mode: 'test' | 'live';
-  order_id?: number;
   shipment_id?: number;
   awb?: string;
   courier?: string;
+  tracking_url?: string;
   label_url?: string;
-  pickup_booked?: boolean;
+  status?: string; // the latest status iCarry sent
   error?: string;
   at: string;
 }
@@ -167,7 +176,7 @@ export interface ReviewRow {
 }
 
 // remember when an order first reached each status, for the analysis pages
-export function stampStatus(times: OrderRow['status_times'], status: OrderStatus, at = new Date().toISOString()) {
+export function stampStatus(times: OrderRow['status_times'], status: OrderStatus | 'payment_claimed', at = new Date().toISOString()) {
   const t = { ...(times ?? {}) };
   t[status] ??= at;
   return t;

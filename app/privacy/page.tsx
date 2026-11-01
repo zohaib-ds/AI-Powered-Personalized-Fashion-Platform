@@ -18,7 +18,7 @@ export default function Privacy() {
 
         <h2>What we collect</h2>
         <ul>
-          <li><strong>When you order:</strong> your name, mobile number, delivery address (house number, floor, street, area, landmark, city and pincode) and, if you give it, your email address.</li>
+          <li><strong>When you order:</strong> your name, mobile number, delivery address (house number, floor, street, area, landmark, city and pincode) and email address.</li>
           <li><strong>Your design:</strong> the text, drawings and images you put on the shirt, and the print files and preview pictures made from them.</li>
           <li><strong>If you leave a review:</strong> your rating, your comment and the name you enter.</li>
           <li><strong>Technical data:</strong> like any website, our hosting provider receives your IP address and browser details when you load a page.</li>
@@ -29,6 +29,7 @@ export default function Privacy() {
         <ul>
           <li>To print your shirt and deliver it to you.</li>
           <li>To show you the status of your order and let you find it again with your order number and phone number.</li>
+          <li>To email you about your order: when we receive your payment details, when your order is confirmed and if it is cancelled.</li>
           <li>To contact you about your order, for example if there is a problem with an image or the address.</li>
           <li>To handle reprints, refunds and complaints, and to keep the records that tax and accounting rules require.</li>
         </ul>
@@ -37,7 +38,8 @@ export default function Privacy() {
         <h2>Who we share it with</h2>
         <ul>
           <li><strong>Our print partner</strong> who prints your order sees your name, phone number, delivery address, the print files and your review of that order.</li>
-          <li><strong>Our delivery partner</strong> receives your name, phone number and address to deliver the parcel.</li>
+          <li><strong>Our delivery partner</strong> (iCarry and the courier it books) receives your name, phone number, email, address and, for cash on delivery, the amount to collect.</li>
+          <li><strong>Google</strong> sends our order emails from our Gmail account.</li>
           <li><strong>Our service providers</strong> store and run the website for us: Vercel hosts the site, Supabase stores the order database and print files, and Google Fonts serves the typefaces. Their servers may be outside India.</li>
           {upiOn()
             ? <li><strong>Your UPI app and bank</strong> process your payment. We see the amount and the UPI reference number you give us, to match the payment to your order. We never see your UPI PIN or bank login.</li>

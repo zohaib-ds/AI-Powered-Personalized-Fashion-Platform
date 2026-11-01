@@ -1,8 +1,9 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { isUtr, upiOn, UTR_MISSING, UTR_SENT } from '@/lib/payments';
-import { supabaseAdmin, type OrderRow } from '@/lib/supabase-server';
+import { sendOrderMail } from '@/lib/mail';
+import { COD_REF, isUtr, upiOn, UTR_MISSING, UTR_SENT } from '@/lib/payments';
+import { stampStatus, supabaseAdmin, type OrderRow } from '@/lib/supabase-server';
 
 // The customer paid by UPI. The 12 digit UPI reference (UTR) is optional: without it the admin
 // matches the payment by its amount and the order number in the UPI note.
@@ -14,9 +15,9 @@ export async function sendUtr(_prev: string | null, form: FormData): Promise<str
   if (utr && !isUtr(utr)) return 'The UPI reference number is 12 digits, only numbers, like 412345678901. Check it, or leave the box empty.';
 
   const db = supabaseAdmin();
-  const { data } = await db.from('orders').select('status,payment_ref').eq('id', id).maybeSingle();
-  const o = data as Pick<OrderRow, 'status' | 'payment_ref'> | null;
-  if (!o) return 'Order not found.';
+  const { data } = await db.from('orders').select('*').eq('id', id).maybeSingle();
+  const o = data as OrderRow | null;
+  if (!o || o.payment_ref === COD_REF) return 'Order not found.';
   if (o.status !== 'pending_payment' || o.payment_ref?.startsWith(UTR_SENT)) return null;
   // once we could not find the payment, we need the number to look again
   if (!utr && o.payment_ref?.startsWith(UTR_MISSING)) return 'Enter the 12 digit UPI reference number from your UPI app. It is only numbers, like 412345678901.';
@@ -26,10 +27,14 @@ export async function sendUtr(_prev: string | null, form: FormData): Promise<str
     if ((used ?? []).some((u: { id: string }) => u.id !== id)) return 'That reference number is already used for another order. Check it in your UPI app.';
   }
 
+  // the payment claim: the order, the amount (o.total) and when the customer said they paid
+  const now = new Date().toISOString();
+  const first = !o.status_times?.payment_claimed;
   const { error } = await db.from('orders')
-    .update({ payment_ref: UTR_SENT + utr, updated_at: new Date().toISOString() })
+    .update({ payment_ref: UTR_SENT + utr, updated_at: now, status_times: stampStatus(o.status_times, 'payment_claimed', now) })
     .eq('id', id).eq('status', 'pending_payment');
   if (error) return 'Could not save it. Please try again.';
+  if (first) await sendOrderMail('claimed', o);
   revalidatePath(`/order/${id}`);
   revalidatePath('/admin');
   return null;

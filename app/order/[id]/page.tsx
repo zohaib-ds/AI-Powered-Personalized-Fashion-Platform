@@ -7,7 +7,8 @@ import { SiteFooter, SiteHeader } from '@/components/SiteChrome';
 import UnboxingNotice from '@/components/UnboxingNotice';
 import UpiPay from '@/components/UpiPay';
 import { shirtName } from '@/lib/design';
-import { upiLink, upiOn, upiPayee, UTR_MISSING, UTR_SENT } from '@/lib/payments';
+import { CHECK_PROMISE } from '@/lib/mail';
+import { COD_REF, upiLink, upiOn, UTR_MISSING, UTR_SENT } from '@/lib/payments';
 import { rupee } from '@/lib/pricing';
 import { addressText, JOURNEY, journeyIndex, orderItems, signedLinks, STATUS_LABEL, supabaseAdmin, type OrderRow, type ReviewRow } from '@/lib/supabase-server';
 
@@ -15,7 +16,9 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Your order · WearSketch', robots: { index: false } };
 
 const STEP_TEXT: Record<string, string> = {
-  paid: 'Order placed',
+  placed: 'Order placed',
+  payment: 'Payment verification',
+  paid: 'Confirmed',
   sent_to_printer: 'Printing',
   printed: 'Printed',
   shipped: 'On the way',
@@ -34,18 +37,18 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const review = rv as ReviewRow | null;
   const items = orderItems(o);
   const links = await signedLinks(db, items.flatMap((it) => [it.files.views, it.files.preview]).filter(Boolean));
-  const at = journeyIndex(o.status);
+  const at = journeyIndex(o);
+  const cod = o.payment_ref === COD_REF;
   const canReview = ['printed', 'pickup_requested', 'shipped', 'delivered'].includes(o.status);
   const code = o.code ?? o.id.slice(0, 8).toUpperCase();
   // pay by UPI: a QR code until the customer sends the UPI reference, then a note while we check it
-  const upi = o.status === 'pending_payment' && upiOn();
+  const upi = o.status === 'pending_payment' && upiOn() && !cod;
   const utrSent = upi && o.payment_ref?.startsWith(UTR_SENT) ? o.payment_ref.slice(UTR_SENT.length) : null;
   const utrMissing = o.payment_ref?.startsWith(UTR_MISSING) ? o.payment_ref.slice(UTR_MISSING.length) : null;
   const link = upi && utrSent === null ? upiLink(code, o.total) : null;
   const qr = link ? await QRCode.toString(link, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#ffffff' } }) : null;
-  const payee = upiPayee();
   const heading = o.status === 'pending_payment'
-    ? (utrSent !== null ? 'We are checking your payment' : upi ? `Pay ${rupee(o.total)} to confirm your order` : 'Your order is waiting for payment')
+    ? (cod ? 'We are confirming your order' : utrSent !== null ? 'Your payment is being verified' : upi ? `Pay ${rupee(o.total)} to confirm your order` : 'Your order is waiting for payment')
     : o.status === 'cancelled' ? 'This order was cancelled' : fresh ? 'Thank you. Your order is in.' : STEP_TEXT[JOURNEY[at]] ?? STATUS_LABEL[o.status];
 
   return (
@@ -62,11 +65,17 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
           </div>
         </div>
 
-        {qr && link && <UpiPay orderId={o.id} amount={rupee(o.total)} qr={qr} link={link} upiId={payee.id} payee={payee.name} missing={utrMissing} />}
+        {qr && link && <UpiPay orderId={o.id} amount={rupee(o.total)} qr={qr} link={link} missing={utrMissing} />}
         {utrSent !== null && (
           <div className="card">
-            <h3>Payment sent for checking</h3>
-            <p className="muted">{utrSent ? `You gave UPI reference number ${utrSent}. ` : ''}We check every payment against our bank account and start printing once it is confirmed. This page updates when it is.</p>
+            <h3>Thank you. We have your payment details.</h3>
+            <p className="muted">{utrSent ? `You gave UPI reference number ${utrSent}. ` : ''}{CHECK_PROMISE} We have also sent this to {o.email}.</p>
+            <ol className="upi-steps">
+              <li>We verify your payment.</li>
+              <li>Your order is confirmed.</li>
+              <li>Your custom T-shirt goes into production.</li>
+            </ol>
+            <p className="muted">Order ID #{code}. Need help? <Link href="/help">Contact support</Link> and mention your order ID.</p>
           </div>
         )}
 
@@ -75,7 +84,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             {JOURNEY.map((s, i) => (
               <li key={s} className={i < at ? 'done' : i === at ? 'now' : ''}>
                 <span className="j-dot" />
-                <span className="j-text">{STEP_TEXT[s]}</span>
+                <span className="j-text">{s === 'payment' && cod ? 'Cash on delivery' : STEP_TEXT[s]}</span>
                 {s === 'shipped' && o.tracking && i <= at && <span className="j-sub">Tracking {o.tracking}</span>}
               </li>
             ))}
@@ -101,7 +110,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
               <tr><td>Shirts</td><td>{o.qty}</td></tr>
               <tr><td>Shirts total</td><td>{rupee(o.price.subtotal)}</td></tr>
               <tr><td>Delivery</td><td>{rupee(o.price.shipping)}</td></tr>
-              <tr className="total"><td>Total</td><td>{rupee(o.total)}{o.payment_ref?.startsWith('SAMPLE') ? ' (test payment)' : ''}</td></tr>
+              {o.price.cod_fee ? <tr><td>Cash on delivery fee</td><td>{rupee(o.price.cod_fee)}</td></tr> : null}
+              <tr className="total"><td>Total</td><td>{rupee(o.total)}{o.payment_ref?.startsWith('SAMPLE') ? ' (test payment)' : cod ? ' (pay in cash on delivery)' : ''}</td></tr>
               <tr><td>Deliver to</td><td>{o.customer_name}, {addressText(o)}, {o.pincode}</td></tr>
             </tbody></table>
           </div>
