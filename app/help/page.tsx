@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { SiteFooter, SiteHeader } from '@/components/SiteChrome';
-import { BRAND } from '@/lib/brand';
+import { BRAND, gmailLink } from '@/lib/brand';
 import { COLOURS, FONTS, SIZES, ZONE_INFO } from '@/lib/design';
 import { FROM_PRICE, PRICES, rupee } from '@/lib/pricing';
 
@@ -54,7 +54,7 @@ export default function Help() {
           <p className="muted">Tell us your order number and what happened.</p>
           <div className="row">
             {BRAND.whatsapp && <a className="btn primary" href={`https://wa.me/${BRAND.whatsapp}`} target="_blank" rel="noreferrer">WhatsApp us</a>}
-            {BRAND.email && <a className="btn" href={`mailto:${BRAND.email}`}>{BRAND.email}</a>}
+            {BRAND.email && <a className="btn" href={gmailLink()} target="_blank" rel="noreferrer">{BRAND.email}</a>}
             {!BRAND.whatsapp && !BRAND.email && <span className="muted">Our support contact is being set up and will appear here.</span>}
           </div>
         </section>

@@ -3,11 +3,12 @@
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { ADMIN_COOKIE, adminTokenValid, TEST_COOKIE, testCookieOptions, testToken } from '@/lib/admin-session';
-import { giveToOnlyMerchant } from '@/lib/auto-assign';
+import { giveToMerchant } from '@/lib/auto-assign';
 import { isMobile, mobileDigits } from '@/lib/design';
 import { hashPassword, openPassword, sealPassword } from '@/lib/printer-auth';
 import { UTR_MISSING, UTR_SENT } from '@/lib/payments';
-import { addPickupAddress, bookShipment, pickupName, shiprocketOn } from '@/lib/shiprocket';
+import { bookShipment, icarryOn, registerPickup } from '@/lib/icarry';
+import { sendOrderMail } from '@/lib/mail';
 import { ISSUE_LABEL, stampStatus, STATUS_LABEL, supabaseAdmin, type OrderRow, type OrderStatus, type PrinterRow } from '@/lib/supabase-server';
 
 // Only reachable from /admin, which middleware guards. Each action checks the session again.
@@ -33,17 +34,15 @@ export async function stopPaymentTest() {
 export async function updateOrder(form: FormData) {
   await requireAdmin();
   const id = String(form.get('id') || '');
-  let status = String(form.get('status') || '') as OrderStatus;
+  const status = String(form.get('status') || '') as OrderStatus;
   if (!isId(id) || !(status in STATUS_LABEL)) return;
   const printerId = String(form.get('printer_id') || '');
   const issue = String(form.get('issue') || '');
   const refund = Math.round(Number(form.get('refund_amount') || 0));
   const db = supabaseAdmin();
-  const { data } = await db.from('orders').select('printer_id,status,status_times,total').eq('id', id).single();
-  const before = data as Pick<OrderRow, 'printer_id' | 'status' | 'status_times' | 'total'> | null;
+  const { data } = await db.from('orders').select('*').eq('id', id).single();
+  const before = data as OrderRow | null;
   if (!before) return;
-  // handing a paid order to a printer moves it to "with the printer"
-  if (printerId && before.printer_id !== printerId && status === 'paid') status = 'sent_to_printer';
   const now = new Date().toISOString();
   await db
     .from('orders')
@@ -59,7 +58,14 @@ export async function updateOrder(form: FormData) {
       updated_at: now,
     })
     .eq('id', id);
+  // the same emails and hand-over as the To do buttons, when an unpaid order is confirmed or cancelled here
+  if (before.status === 'pending_payment' && status === 'paid') {
+    await giveToMerchant(id);
+    await sendOrderMail('confirmed', before);
+  }
+  if (before.status === 'pending_payment' && status === 'cancelled') await sendOrderMail('cancelled', before);
   revalidatePath('/admin');
+  revalidatePath(`/order/${id}`);
 }
 
 export interface Credentials { name: string; loginId: string; password: string }
@@ -128,8 +134,6 @@ export async function setPrinterLogin(_prev: CredentialsResult, form: FormData):
   if (!password && !p.password_hash) return { error: 'This merchant has no password yet. Type one.', values };
   const { error } = await db.from('printers').update({
     login_id: loginId, access_code: loginId,
-    // Shiprocket knows the shop by its pickup name, which was the old login ID: keep it
-    shiprocket_pickup: pickupName(p),
     ...(password ? { password_hash: hashPassword(password) } : {}),
   }).eq('id', id);
   if (error) return { error: takenOrSaveError(error), values };
@@ -168,9 +172,10 @@ export async function savePrinterDetails(_prev: DetailsResult, form: FormData): 
   revalidatePath('/admin');
   revalidatePath('/printer');
   const moved = (p.address ?? null) !== update.address || (p.pincode ?? null) !== update.pincode || (p.phone ?? null) !== update.phone;
-  if (moved && update.address && shiprocketOn()) {
-    const problem = await addPickupAddress({ ...p, ...update });
-    if (problem) return { ok: 'Saved.', error: `Shiprocket did not accept this pickup address yet: ${problem}`, values };
+  // a new address becomes a new iCarry pickup address
+  if (moved && update.address && icarryOn()) {
+    const problem = await registerPickup({ ...p, ...update });
+    if (problem) return { ok: 'Saved.', error: `iCarry did not accept this pickup address yet: ${problem}`, values };
   }
   return { ok: 'Saved.', values };
 }
@@ -199,12 +204,8 @@ export async function assignOrder(form: FormData) {
   const printerId = String(form.get('printer_id') || '');
   if (!isId(id) || !isId(printerId)) return;
   const db = supabaseAdmin();
-  const { data } = await db.from('orders').select('status,status_times').eq('id', id).single();
-  const before = data as Pick<OrderRow, 'status' | 'status_times'> | null;
-  if (!before) return;
-  const status: OrderStatus = before.status === 'paid' ? 'sent_to_printer' : before.status;
-  const now = new Date().toISOString();
-  await db.from('orders').update({ printer_id: printerId, status, status_times: stampStatus(before.status_times, status, now), updated_at: now }).eq('id', id);
+  // the order stays Confirmed and shows under New orders on the merchant's page
+  await db.from('orders').update({ printer_id: printerId, updated_at: new Date().toISOString() }).eq('id', id);
   revalidatePath('/admin');
 }
 
@@ -233,8 +234,8 @@ async function moveOrder(form: FormData, status: 'shipped' | 'delivered') {
   revalidatePath('/admin');
 }
 
-// Tries Shiprocket again for an order whose pickup request did not go through.
-export async function retryShiprocket(form: FormData) {
+// Tries iCarry again for an order whose courier booking did not go through.
+export async function retryCourier(form: FormData) {
   await requireAdmin();
   const id = String(form.get('id') || '');
   if (!isId(id)) return;
@@ -256,17 +257,18 @@ export async function deletePrinter(form: FormData) {
   if (!isId(id)) return;
   const db = supabaseAdmin();
   const now = new Date().toISOString();
-  await db.from('orders').update({ status: 'paid', printer_id: null, updated_at: now }).eq('printer_id', id).in('status', ['sent_to_printer', 'printed']);
+  await db.from('orders').update({ status: 'paid', printer_id: null, updated_at: now }).eq('printer_id', id).in('status', ['paid', 'sent_to_printer', 'printed']);
   await db.from('printers').delete().eq('id', id);
   revalidatePath('/admin');
 }
 
-// The name of this merchant's pickup address in Shiprocket, if it differs from their login ID.
-export async function setShiprocketPickup(form: FormData) {
+// The merchant's iCarry pickup address ID, if it was made in the iCarry panel instead of from here.
+export async function setPickupId(form: FormData) {
   await requireAdmin();
   const id = String(form.get('id') || '');
   if (!isId(id)) return;
-  await supabaseAdmin().from('printers').update({ shiprocket_pickup: text(form, 'shiprocket_pickup', 36) }).eq('id', id);
+  const pickup = String(form.get('pickup_id') || '').replace(/\D/g, '').slice(0, 12);
+  await supabaseAdmin().from('printers').update({ shiprocket_pickup: pickup || null }).eq('id', id);
   revalidatePath('/admin');
 }
 
@@ -295,12 +297,33 @@ export async function paymentReceived(form: FormData) {
   const id = String(form.get('id') || '');
   if (!isId(id)) return;
   const db = supabaseAdmin();
-  const { data } = await db.from('orders').select('status,status_times').eq('id', id).single();
-  const o = data as Pick<OrderRow, 'status' | 'status_times'> | null;
+  const { data } = await db.from('orders').select('*').eq('id', id).single();
+  const o = data as OrderRow | null;
   if (!o || o.status !== 'pending_payment') return;
   const now = new Date().toISOString();
-  await db.from('orders').update({ status: 'paid', updated_at: now, status_times: stampStatus(o.status_times, 'paid', now) }).eq('id', id).eq('status', 'pending_payment');
-  await giveToOnlyMerchant(id);
+  const { data: moved } = await db.from('orders').update({ status: 'paid', updated_at: now, status_times: stampStatus(o.status_times, 'paid', now) })
+    .eq('id', id).eq('status', 'pending_payment').select('id');
+  if (!moved?.length) return; // confirmed already, by another tap
+  await giveToMerchant(id);
+  await sendOrderMail('confirmed', o);
+  revalidatePath('/admin');
+  revalidatePath(`/order/${id}`);
+}
+
+// No payment came for this order: cancel it and tell the customer.
+export async function cancelUnpaid(form: FormData) {
+  await requireAdmin();
+  const id = String(form.get('id') || '');
+  if (!isId(id)) return;
+  const db = supabaseAdmin();
+  const { data } = await db.from('orders').select('*').eq('id', id).single();
+  const o = data as OrderRow | null;
+  if (!o || o.status !== 'pending_payment') return;
+  const now = new Date().toISOString();
+  const { data: moved } = await db.from('orders').update({ status: 'cancelled', updated_at: now, status_times: stampStatus(o.status_times, 'cancelled', now) })
+    .eq('id', id).eq('status', 'pending_payment').select('id');
+  if (!moved?.length) return;
+  await sendOrderMail('cancelled', o);
   revalidatePath('/admin');
   revalidatePath(`/order/${id}`);
 }

@@ -10,3 +10,6 @@ export const BRAND = {
   email: 'wearsketchh@gmail.com', // support email shown on the help, about, privacy and terms pages and in the footer
   whatsapp: '', // e.g. '919876543210' to show a WhatsApp button on the help page
 };
+
+// Our email as a link that opens a new message to us in Gmail (in a new tab).
+export const gmailLink = (to = BRAND.email) => `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}`;

@@ -12,7 +12,7 @@ interface CreateResponse {
   orderId: string;
   total: number;
   uploads: Record<string, { path: string; signedUrl: string }>;
-  payment: 'upi' | 'sample';
+  payment: 'upi' | 'sample' | 'cod';
 }
 
 const digits = (v: string, max: number) => v.replace(/\D/g, '').slice(0, max);
@@ -26,6 +26,7 @@ export default function CartView({ upi }: { upi: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [phone, setPhone] = useState('');
   const [pincode, setPincode] = useState('');
+  const [pay, setPay] = useState<'now' | 'cod'>('now');
   const notice = useRef<HTMLDialogElement>(null);
   const formTop = useRef<HTMLHeadingElement>(null);
 
@@ -48,7 +49,10 @@ export default function CartView({ upi }: { upi: boolean }) {
 
   if (items === null) return <p className="loading">Opening your cart…</p>;
 
-  const q = quoteOrder(items);
+  // cash on delivery costs a little more; the ₹1 test size is for trying UPI only
+  const hasTest = items.some((it) => it.size === 'test');
+  const cod = pay === 'cod' && !hasTest;
+  const q = quoteOrder(items, cod);
   // items from before free size was removed need a size first
   const noSize = items.findIndex((it) => !okSize(it.size));
 
@@ -86,13 +90,15 @@ export default function CartView({ upi }: { upi: boolean }) {
     const address = Object.fromEntries(ADDRESS_FIELDS.map((a) => [a.key, String(f.get(a.key) || '').trim()])) as unknown as Address;
     const customer = { name: String(f.get('name') || '').trim(), phone, email: String(f.get('email') || '').trim(), address };
     if (!isMobile(phone)) { setError('Enter a 10-digit mobile number, without +91 or a leading 0.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email)) { setError('Enter your email address. We send your order updates there.'); return; }
+    if (f.get('agree') !== 'on') { setError('Tick the box to agree to the terms and conditions and the privacy policy.'); return; }
     if (!isDelhiPincode(address.pincode)) { setError('We deliver only in Delhi for now. Enter a pincode that starts with 110.'); return; }
     try {
       setBusy('Saving your order…');
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ items: items.map((i) => ({ colourId: i.colourId, size: i.size, qty: i.qty, prints: i.prints })), customer }),
+        body: JSON.stringify({ items: items.map((i) => ({ colourId: i.colourId, size: i.size, qty: i.qty, prints: i.prints })), customer, payment: cod ? 'cod' : 'now', agree: true }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not create the order.');
@@ -108,8 +114,14 @@ export default function CartView({ upi }: { upi: boolean }) {
       const done = await Promise.all(puts);
       if (done.some((r) => r && !r.ok)) throw new Error('A print file did not upload. Please try again.');
 
-      // with UPI the customer pays on the order page; the sample provider approves straight away
-      if (order.payment !== 'upi') {
+      // with UPI the customer pays on the order page; cash on delivery is confirmed now that the files are in;
+      // the sample provider approves straight away
+      if (order.payment === 'cod') {
+        setBusy('Confirming your order…');
+        const res2 = await fetch(`/api/orders/${order.orderId}/cod`, { method: 'POST' });
+        const d2 = await res2.json();
+        if (!res2.ok) throw new Error(d2.error || 'Could not confirm the order.');
+      } else if (order.payment === 'sample') {
         setBusy('Confirming payment…');
         const pay = await fetch(`/api/orders/${order.orderId}/pay`, { method: 'POST' });
         const payData = await pay.json();
@@ -184,7 +196,7 @@ export default function CartView({ upi }: { upi: boolean }) {
                 </div>
               </div>
             </div>
-            <div className="field"><label htmlFor="email">Email (optional)</label><input className="inp" id="email" name="email" type="email" autoComplete="email" maxLength={160} /></div>
+            <div className="field"><label htmlFor="email">Email</label><input className="inp" id="email" name="email" type="email" required autoComplete="email" maxLength={160} /><span className="muted field-note">We send your order updates here.</span></div>
             <div className="addr-grid">
               {ADDRESS_FIELDS.map((a) => (
                 <div key={a.key} className={`field f-${a.key}`}>
@@ -199,9 +211,16 @@ export default function CartView({ upi }: { upi: boolean }) {
                 </div>
               ))}
             </div>
-            {upi
-              ? <p className="muted">After you place the order, the next page shows a UPI QR code for the exact amount. Pay with any UPI app.</p>
-              : <div className="sample-note">Test mode: no money is charged yet. Your order is saved and marked paid so the whole flow can be tried.</div>}
+            <fieldset className="pay-pick">
+              <legend>Payment</legend>
+              <label><input type="radio" name="pay" value="now" checked={!cod} onChange={() => setPay('now')} />
+                <span><strong>{upi ? 'Pay now by UPI' : 'Pay now'}</strong>{upi && <span className="muted"> After you place the order, the next page shows a UPI QR code for the exact amount.</span>}</span></label>
+              {!hasTest && <label><input type="radio" name="pay" value="cod" checked={cod} onChange={() => setPay('cod')} />
+                <span><strong>Cash on delivery (+{rupee(PRICES.codFee)})</strong><span className="muted"> Pay the courier in cash when your shirt arrives.</span></span></label>}
+            </fieldset>
+            {!upi && !cod && <div className="sample-note">Test mode: no money is charged yet. Your order is saved and marked paid so the whole flow can be tried.</div>}
+            <label className="agree"><input type="checkbox" name="agree" required />
+              <span>I agree to the <Link href="/terms" target="_blank">terms and conditions</Link> and the <Link href="/privacy" target="_blank">privacy policy</Link>.</span></label>
             {error && <div className="err" role="alert">{error}</div>}
             <div className="co-actions">
               <button type="button" className="btn ghost" onClick={() => { setStep('cart'); setError(null); }} disabled={!!busy}>Back to cart</button>
@@ -216,6 +235,7 @@ export default function CartView({ upi }: { upi: boolean }) {
         <table className="lines"><tbody>
           <tr><td>{q.shirts} shirt{q.shirts > 1 ? 's' : ''}</td><td>{rupee(q.subtotal)}</td></tr>
           <tr><td>Delivery</td><td>{rupee(q.shipping)}</td></tr>
+          {q.codFee > 0 && <tr><td>Cash on delivery</td><td>{rupee(q.codFee)}</td></tr>}
           <tr className="total"><td>Total</td><td>{rupee(q.total)}</td></tr>
         </tbody></table>
         <p className="note">Delivery is {rupee(PRICES.delivery.base)} for up to {PRICES.delivery.perShirts} shirts, then {rupee(PRICES.delivery.step)} more for every {PRICES.delivery.perShirts} shirts after that.</p>

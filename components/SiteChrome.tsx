@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import CartLink from './CartLink';
 import Wordmark from './Wordmark';
-import { BRAND } from '@/lib/brand';
+import { BRAND, gmailLink } from '@/lib/brand';
 
 export function SiteHeader() {
   return (
@@ -28,7 +28,7 @@ export function SiteFooter() {
         <div className="footer-brand">
           <Wordmark size={20} light />
           <p className="muted">Custom T-shirts you design in 3D. We print them and deliver them to your door.</p>
-          {BRAND.email && <a className="footer-mail" href={`mailto:${BRAND.email}`}>{BRAND.email}</a>}
+          {BRAND.email && <a className="footer-mail" href={gmailLink()} target="_blank" rel="noreferrer">{BRAND.email}</a>}
         </div>
         <div className="footer-cols">
           <div>

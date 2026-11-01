@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { requestPickup, requestWithdrawal, saveAccount, type FormResult } from '@/app/printer/actions';
+import { requestPickup, requestWithdrawal, saveAccount, startPrinting, type FormResult } from '@/app/printer/actions';
 import type { PrinterRow } from '@/lib/supabase-server';
 
 function Result({ r }: { r: FormResult }) {
@@ -25,6 +25,15 @@ export function PickupButton({ id }: { id: string }) {
     <form action={requestPickup}>
       <input type="hidden" name="id" value={id} />
       <Submit label="Printing done, request pickup" busy="Requesting pickup…" className="btn primary big wide" />
+    </form>
+  );
+}
+
+export function StartPrintingButton({ id }: { id: string }) {
+  return (
+    <form action={startPrinting}>
+      <input type="hidden" name="id" value={id} />
+      <Submit label="Start printing" busy="Moving…" className="btn primary big wide" />
     </form>
   );
 }

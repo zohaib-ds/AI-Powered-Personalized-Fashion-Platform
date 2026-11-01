@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { isMobile, mobileDigits } from '@/lib/design';
 import { merchantMoney } from '@/lib/payouts';
 import { checkPassword, currentPrinter, endPrinterSession, startPrinterSession } from '@/lib/printer-auth';
-import { addPickupAddress, bookShipment, shiprocketOn } from '@/lib/shiprocket';
+import { bookShipment, icarryOn, registerPickup } from '@/lib/icarry';
 import { payTo, stampStatus, supabaseAdmin, type OrderRow, type PayoutRow, type PrinterRow } from '@/lib/supabase-server';
 
 const isId = (v: string) => /^[0-9a-f-]{36}$/i.test(v);
@@ -27,8 +27,25 @@ export async function printerLogout() {
   redirect('/printer');
 }
 
-// "Printing done, request pickup": the order is ready to be collected. When Shiprocket is set up,
-// the order is sent there too (and in live mode the courier and pickup are booked).
+// "Start printing": a new order moves to Currently printing.
+export async function startPrinting(form: FormData) {
+  const printer = await currentPrinter();
+  if (!printer) redirect('/printer');
+  const id = String(form.get('id') || '');
+  if (!isId(id)) return;
+  const db = supabaseAdmin();
+  const { data } = await db.from('orders').select('status,status_times').eq('id', id).eq('printer_id', printer.id).maybeSingle();
+  const order = data as Pick<OrderRow, 'status' | 'status_times'> | null;
+  if (!order || order.status !== 'paid') return;
+  const now = new Date().toISOString();
+  await db.from('orders').update({ status: 'sent_to_printer', updated_at: now, status_times: stampStatus(order.status_times, 'sent_to_printer', now) })
+    .eq('id', id).eq('printer_id', printer.id).eq('status', 'paid');
+  revalidatePath('/printer');
+  revalidatePath('/admin');
+}
+
+// "Printing done, request pickup": the order is ready to be collected. When iCarry is set up,
+// the shipment is sent there too (and in live mode the courier is booked).
 export async function requestPickup(form: FormData) {
   const printer = await currentPrinter();
   if (!printer) redirect('/printer');
@@ -42,7 +59,7 @@ export async function requestPickup(form: FormData) {
   let times = stampStatus(order.status_times, 'sent_to_printer', now);
   times = stampStatus(times, 'printed', now);
   times = stampStatus(times, 'pickup_requested', now);
-  const shiprocket = shiprocketOn() ? await bookShipment(order, printer) : null;
+  const shiprocket = icarryOn() ? await bookShipment(order, printer) : null;
   await db
     .from('orders')
     .update({
@@ -92,8 +109,8 @@ export async function saveAccount(_prev: FormResult, form: FormData): Promise<Fo
   if (error) return refuse(`Could not save: ${error.message}`);
   revalidatePath('/printer');
   const moved = printer.address !== address || printer.pincode !== pincode || printer.phone !== phone;
-  if (moved && shiprocketOn()) {
-    const problem = await addPickupAddress({ ...printer, ...update });
+  if (moved && icarryOn()) {
+    const problem = await registerPickup({ ...printer, ...update });
     if (problem) return { ok: 'Saved.', error: `The courier company did not accept this pickup address yet: ${problem}. The WearSketch team will sort it out.` };
   }
   return { ok: 'Saved.' };

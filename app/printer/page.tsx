@@ -1,7 +1,7 @@
 import PortalHeader from '@/components/PortalHeader';
 import PrinterLogin from '@/components/PrinterLogin';
 import PrintSpec from '@/components/PrintSpec';
-import { AccountForm, PickupButton, WithdrawForm } from '@/components/MerchantForms';
+import { AccountForm, PickupButton, StartPrintingButton, WithdrawForm } from '@/components/MerchantForms';
 import Tabs from '@/components/Tabs';
 import { COLOURS, sizeShort, ZONE_INFO, zonesUsed } from '@/lib/design';
 import { merchantMoney, WITHDRAW_EVERY_DAYS } from '@/lib/payouts';
@@ -35,10 +35,12 @@ export default async function PrinterHome({ searchParams }: { searchParams: Prom
   ]);
   const all = (od ?? []) as OrderRow[];
   const payouts = (yd ?? []) as PayoutRow[];
-  const toPrint = all.filter((o) => ['paid', 'sent_to_printer', 'printed'].includes(o.status));
+  // New orders arrive here on their own once the payment is confirmed (or for cash on delivery)
+  const fresh = all.filter((o) => o.status === 'paid');
+  const printing = all.filter((o) => ['sent_to_printer', 'printed'].includes(o.status));
   const waiting = all.filter((o) => o.status === 'pickup_requested');
   const done = all.filter((o) => o.status === 'delivered');
-  const links = await signedLinks(db, [...toPrint, ...waiting].flatMap((o) => orderItems(o).flatMap((it) => Object.values(it.files ?? {}))));
+  const links = await signedLinks(db, [...fresh, ...printing, ...waiting].flatMap((o) => orderItems(o).flatMap((it) => Object.values(it.files ?? {}))));
   const money = merchantMoney(all, payouts);
   const payDetails = payTo(printer);
   const blocked = !payDetails ? 'Add your UPI ID or bank account in the Account tab first.'
@@ -68,33 +70,44 @@ export default async function PrinterHome({ searchParams }: { searchParams: Prom
     );
   };
 
-  const ordersPanel = (
-    <>
-      {!printer.address && <div className="warn">Add your shop address in the Account tab so the courier knows where to collect from.</div>}
-      <h2 className="list-h">To print ({toPrint.length})</h2>
-      {!toPrint.length && <div className="card empty">No orders to print right now.</div>}
-      {toPrint.map((o) => {
-        const items = orderItems(o);
-        const pic = orderPreview(o);
-        return (
-          <div key={o.id} className="card m-order">
-            <div className="m-order-top">
-              <span className="m-thumb">{pic && links[pic] ? <img src={links[pic]} alt="" /> : null}</span>
-              <div className="m-what">
-                <strong>Order #{o.code ?? o.id.slice(0, 8).toUpperCase()}</strong>
-                {items.map((it, i) => {
-                  const colour = COLOURS.find((c) => c.id === it.colourId);
-                  return <div key={i}><span className="swatch-dot sm" style={{ background: colour?.hex }} /> {colour?.name} shirt, size {sizeShort(it.size)}, {it.qty} piece{it.qty > 1 ? 's' : ''}. Print on {zonesUsed(it).map((z) => ZONE_INFO[z].label.toLowerCase()).join(', ')}.</div>;
-                })}
-                <div className="muted">Ordered {fmt(o.created_at)} · your rate {rupee(o.printer_cost ?? 0)}</div>
-                {o.notes && <div className="note-line">Note from WearSketch: {o.notes}</div>}
-              </div>
-            </div>
-            {printFiles(o, true)}
-            <PickupButton id={o.id} />
+  const orderCard = (o: OrderRow, isNew: boolean) => {
+    const items = orderItems(o);
+    const pic = orderPreview(o);
+    return (
+      <div key={o.id} className="card m-order">
+        <div className="m-order-top">
+          <span className="m-thumb">{pic && links[pic] ? <img src={links[pic]} alt="" /> : null}</span>
+          <div className="m-what">
+            <strong>Order #{o.code ?? o.id.slice(0, 8).toUpperCase()}</strong>
+            {items.map((it, i) => {
+              const colour = COLOURS.find((c) => c.id === it.colourId);
+              return <div key={i}><span className="swatch-dot sm" style={{ background: colour?.hex }} /> {colour?.name} shirt, size {sizeShort(it.size)}, {it.qty} piece{it.qty > 1 ? 's' : ''}. Print on {zonesUsed(it).map((z) => ZONE_INFO[z].label.toLowerCase()).join(', ')}.</div>;
+            })}
+            <div className="muted">Ordered {fmt(o.created_at)} · your rate {rupee(o.printer_cost ?? 0)}</div>
+            {o.notes && <div className="note-line">Note from WearSketch: {o.notes}</div>}
           </div>
-        );
-      })}
+        </div>
+        {printFiles(o, !isNew)}
+        {isNew ? <StartPrintingButton id={o.id} /> : <PickupButton id={o.id} />}
+      </div>
+    );
+  };
+
+  const noAddress = !printer.address && <div className="warn">Add your shop address in the Account tab so the courier knows where to collect from.</div>;
+
+  const newPanel = (
+    <>
+      {noAddress}
+      {!fresh.length && <div className="card empty">No new orders right now. New orders show up here on their own.</div>}
+      {fresh.map((o) => orderCard(o, true))}
+    </>
+  );
+
+  const printingPanel = (
+    <>
+      {noAddress}
+      {!printing.length && <div className="card empty">Nothing is printing. Tap Start printing on a new order to move it here.</div>}
+      {printing.map((o) => orderCard(o, false))}
 
       {waiting.length > 0 && (
         <>
@@ -161,17 +174,18 @@ export default async function PrinterHome({ searchParams }: { searchParams: Prom
         <div className="portal-head">
           <div>
             <h1>Hi, {printer.name}</h1>
-            <p className="muted">Print the orders below. When an order is printed and packed, tap Printing done, request pickup.</p>
+            <p className="muted">New orders come in on their own. Tap Start printing on one, and when it is printed and packed, tap Printing done, request pickup.</p>
           </div>
         </div>
         <Tabs
-          initial={sp.tab ?? 'orders'}
+          initial={sp.tab ?? 'new'}
           tabs={[
-            { key: 'orders', label: `Orders (${toPrint.length})` },
+            { key: 'new', label: `New orders (${fresh.length})` },
+            { key: 'printing', label: `Currently printing (${printing.length})` },
             { key: 'money', label: 'Money' },
             { key: 'account', label: 'Account' },
           ]}
-          panels={{ orders: ordersPanel, money: moneyPanel, account }}
+          panels={{ new: newPanel, printing: printingPanel, money: moneyPanel, account }}
         />
       </div>
     </>

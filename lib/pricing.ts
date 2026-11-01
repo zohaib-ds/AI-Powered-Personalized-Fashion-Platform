@@ -12,6 +12,7 @@ export const PRICES = {
     secondSide: 50, // printing both front and back
     sleeve: 25, // each printed sleeve
   },
+  codFee: 15, // extra for cash on delivery, so most people pay first
   maxQty: 10, // shirts of one design
   maxItems: 10, // designs in one cart
 };
@@ -30,6 +31,7 @@ export interface OrderQuote {
   shirts: number;
   subtotal: number;
   shipping: number;
+  codFee: number; // 0 unless cash on delivery
   total: number;
   cost: number; // printer cost for the whole order
 }
@@ -58,12 +60,13 @@ export function deliveryFee(shirts: number): number {
   return D.base + D.step * Math.floor((Math.max(1, shirts) - 1) / D.perShirts);
 }
 
-export function quoteOrder(items: { prints: PrintSummary[]; qty: number; size?: string }[]): OrderQuote {
+export function quoteOrder(items: { prints: PrintSummary[]; qty: number; size?: string }[], cod = false): OrderQuote {
   const q = items.map(quoteItem);
   const shirts = q.reduce((s, i) => s + i.qty, 0);
   const subtotal = q.reduce((s, i) => s + i.subtotal, 0);
   const shipping = q.length && !items.every((i) => i.size === 'test') ? deliveryFee(shirts) : 0;
-  return { items: q, shirts, subtotal, shipping, total: subtotal + shipping, cost: q.reduce((s, i) => s + i.cost * i.qty, 0) };
+  const codFee = cod ? PRICES.codFee : 0;
+  return { items: q, shirts, subtotal, shipping, codFee, total: subtotal + shipping + codFee, cost: q.reduce((s, i) => s + i.cost * i.qty, 0) };
 }
 
 // cheapest shirt: one printed area

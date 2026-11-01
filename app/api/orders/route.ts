@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { TEST_COOKIE, testUntil } from '@/lib/admin-session';
 import { ADDRESS_FIELDS, COLOURS, FONTS, formatAddress, isDelhiPincode, isMobile, isSize, mobileDigits, shortId, ZONES, zonesUsed, type Address, type PrintSummary, type SizeId } from '@/lib/design';
-import { upiOn } from '@/lib/payments';
+import { COD_REF, upiOn } from '@/lib/payments';
 import { PRICES, quoteOrder } from '@/lib/pricing';
 import { PRINT_BUCKET, supabaseAdmin, type OrderItem } from '@/lib/supabase-server';
 
@@ -29,7 +29,7 @@ function cleanItem(raw: unknown, test: boolean): CleanItem | null {
 }
 
 export async function POST(req: Request) {
-  let body: { items?: unknown; design?: unknown; customer?: Record<string, unknown> };
+  let body: { items?: unknown; design?: unknown; customer?: Record<string, unknown>; payment?: unknown; agree?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -51,13 +51,17 @@ export async function POST(req: Request) {
   const customer = { name: str(c.name, 120), phone: mobileDigits(str(c.phone, 20)), email: str(c.email, 160) || null };
   if (!customer.name) return NextResponse.json({ error: 'Please enter your full name.' }, { status: 400 });
   if (!isMobile(customer.phone)) return NextResponse.json({ error: 'Enter a 10-digit mobile number.' }, { status: 400 });
+  if (!customer.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email)) return NextResponse.json({ error: 'Enter your email address. We send your order updates there.' }, { status: 400 });
+  if (body.agree !== true) return NextResponse.json({ error: 'Tick the box to agree to the terms and conditions and the privacy policy.' }, { status: 400 });
+  const cod = body.payment === 'cod';
+  if (cod && clean.some((i) => i.size === 'test')) return NextResponse.json({ error: 'The ₹1 test size is for trying UPI, not cash on delivery.' }, { status: 400 });
   const missing = ADDRESS_FIELDS.find((f) => f.required && !address[f.key]);
   if (missing) return NextResponse.json({ error: `Please fill in: ${missing.label}.` }, { status: 400 });
   if (!isDelhiPincode(address.pincode)) {
     return NextResponse.json({ error: 'We deliver only in Delhi for now. Enter a pincode that starts with 110.' }, { status: 400 });
   }
 
-  const q = quoteOrder(clean);
+  const q = quoteOrder(clean, cod);
   let db;
   try {
     db = supabaseAdmin();
@@ -87,10 +91,12 @@ export async function POST(req: Request) {
     // the old single-design columns hold the first design so older screens still work
     colour_id: first.colourId, qty: q.shirts, design: { colourId: first.colourId, qty: first.qty, prints: first.prints }, files: first.files,
     items: orderItems,
-    price: { subtotal: q.subtotal, shipping: q.shipping, total: q.total, cost: q.cost },
+    price: { subtotal: q.subtotal, shipping: q.shipping, ...(cod ? { cod_fee: q.codFee } : {}), total: q.total, cost: q.cost },
     total: q.total, printer_cost: q.cost,
+    // a cash on delivery order is confirmed once its files are uploaded (/api/orders/[id]/cod)
+    ...(cod ? { payment_ref: COD_REF } : {}),
   });
   if (error) return NextResponse.json({ error: 'Could not save the order. Please try again.' }, { status: 500 });
 
-  return NextResponse.json({ orderId: id, total: q.total, uploads, payment: upiOn() ? 'upi' : 'sample' });
+  return NextResponse.json({ orderId: id, total: q.total, uploads, payment: cod ? 'cod' : upiOn() ? 'upi' : 'sample' });
 }

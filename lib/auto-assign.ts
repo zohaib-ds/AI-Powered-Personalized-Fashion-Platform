@@ -1,19 +1,17 @@
 import 'server-only';
-import { stampStatus, supabaseAdmin, type OrderRow } from './supabase-server';
+import { supabaseAdmin, type OrderRow } from './supabase-server';
 
-// While only one merchant is switched on, every paid order goes straight to them, so nobody has to
-// tap "Give" in the admin. With two or more, paid orders wait in To do > Give to a merchant as before.
+// There is one merchant for now, so every confirmed order goes straight to them: the first merchant
+// that is switched on (the oldest, if there are ever more). The order stays "Confirmed" and shows
+// under New orders on their page until they tap Start printing.
 // ₹1 payment tests are never sent, so nothing gets printed for them.
-export async function giveToOnlyMerchant(id: string) {
+export async function giveToMerchant(id: string) {
   const db = supabaseAdmin();
-  const { data: ps } = await db.from('printers').select('id').eq('active', true).limit(2);
-  if (!ps || ps.length !== 1) return;
-  const { data } = await db.from('orders').select('status,status_times,printer_id,items').eq('id', id).single();
-  const o = data as Pick<OrderRow, 'status' | 'status_times' | 'printer_id' | 'items'> | null;
+  const { data: ps } = await db.from('printers').select('id').eq('active', true).order('created_at', { ascending: true }).limit(1);
+  if (!ps?.length) return;
+  const { data } = await db.from('orders').select('status,printer_id,items').eq('id', id).single();
+  const o = data as Pick<OrderRow, 'status' | 'printer_id' | 'items'> | null;
   if (!o || o.status !== 'paid' || o.printer_id) return;
   if ((o.items ?? []).some((it) => it.size === 'test')) return;
-  const now = new Date().toISOString();
-  await db.from('orders')
-    .update({ printer_id: ps[0].id, status: 'sent_to_printer', status_times: stampStatus(o.status_times, 'sent_to_printer', now), updated_at: now })
-    .eq('id', id).eq('status', 'paid');
+  await db.from('orders').update({ printer_id: ps[0].id, updated_at: new Date().toISOString() }).eq('id', id).eq('status', 'paid').is('printer_id', null);
 }

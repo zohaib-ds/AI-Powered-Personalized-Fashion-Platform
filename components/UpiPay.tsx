@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { sendUtr } from '@/app/order/[id]/actions';
 
@@ -11,12 +11,10 @@ function Submit() {
 
 // Pay by UPI: QR code (made on the server) for the exact amount, a button for UPI apps on phones,
 // and the box for the UPI reference number the admin checks against the bank.
-export default function UpiPay({ orderId, amount, qr, link, upiId, payee, missing }: {
-  orderId: string; amount: string; qr: string; link: string; upiId: string; payee: string; missing: string | null;
+export default function UpiPay({ orderId, amount, qr, link, missing }: {
+  orderId: string; amount: string; qr: string; link: string; missing: string | null;
 }) {
   const [error, action] = useActionState(sendUtr, null);
-  const [copied, setCopied] = useState(false);
-  const copy = () => navigator.clipboard?.writeText(upiId).then(() => setCopied(true), () => {});
 
   return (
     <section className="card upi-pay" aria-label="Pay by UPI">
@@ -29,10 +27,6 @@ export default function UpiPay({ orderId, amount, qr, link, upiId, payee, missin
           <li>Tap <strong>I have paid</strong>. We match your payment to this order and confirm it. Adding the 12 digit UPI reference number from your UPI app helps us find it faster, but you can leave it empty.</li>
         </ol>
         <a className="btn upi-open" href={link}>Open UPI app</a>
-        <p className="muted upi-id">
-          Paying to <strong>{payee}</strong>, UPI ID <code>{upiId}</code>{' '}
-          <button type="button" className="btn small ghost" onClick={copy}>{copied ? 'Copied' : 'Copy UPI ID'}</button>
-        </p>
         {missing !== null && <div className="err" role="alert">{missing
           ? `We could not find a payment with reference number ${missing}. Check the number in your UPI app and enter it again.`
           : 'We could not find your payment yet. Enter the 12 digit UPI reference number from your UPI app so we can find it.'}</div>}
