@@ -20,6 +20,7 @@ export default function Privacy() {
         <ul>
           <li><strong>When you order:</strong> your name, mobile number, delivery address (house number, floor, street, area, landmark, city and pincode) and email address.</li>
           <li><strong>Your design:</strong> the text, drawings and images you put on the shirt, and the print files and preview pictures made from them.</li>
+          <li><strong>If you ask us to come to your city:</strong> your city, your answers and, if you give it, your email address, which we use only to tell you when we deliver there.</li>
           <li><strong>If you leave a review:</strong> your rating, your comment and the name you enter.</li>
           <li><strong>Technical data:</strong> like any website, our hosting provider receives your IP address and browser details when you load a page.</li>
         </ul>

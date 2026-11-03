@@ -8,7 +8,7 @@ import { isMobile, mobileDigits } from '@/lib/design';
 import { hashPassword, openPassword, sealPassword } from '@/lib/printer-auth';
 import { UTR_MISSING, UTR_SENT } from '@/lib/payments';
 import { bookShipment, icarryOn, registerPickup } from '@/lib/icarry';
-import { sendOrderMail } from '@/lib/mail';
+import { sendOrderMail, sendTestMail } from '@/lib/mail';
 import { ISSUE_LABEL, stampStatus, STATUS_LABEL, supabaseAdmin, type OrderRow, type OrderStatus, type PrinterRow } from '@/lib/supabase-server';
 
 // Only reachable from /admin, which middleware guards. Each action checks the session again.
@@ -17,6 +17,12 @@ const text = (form: FormData, k: string, max: number) => String(form.get(k) || '
 
 async function requireAdmin() {
   if (!(await adminTokenValid((await cookies()).get(ADMIN_COOKIE)?.value))) throw new Error('Signed out. Open /admin/login to sign in again.');
+}
+
+export type MailResult = { ok?: string; error?: string } | null;
+export async function testEmail(_prev: MailResult, _form: FormData): Promise<MailResult> {
+  await requireAdmin();
+  return sendTestMail();
 }
 
 // the ₹1 test size, in this browser only, for one hour

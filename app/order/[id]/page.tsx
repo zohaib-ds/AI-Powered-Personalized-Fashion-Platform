@@ -5,9 +5,9 @@ import RememberOrder from '@/components/RememberOrder';
 import ReviewForm from '@/components/ReviewForm';
 import { SiteFooter, SiteHeader } from '@/components/SiteChrome';
 import UnboxingNotice from '@/components/UnboxingNotice';
-import UpiPay from '@/components/UpiPay';
+import UpiPay, { AddUtr } from '@/components/UpiPay';
 import { shirtName } from '@/lib/design';
-import { CHECK_PROMISE } from '@/lib/mail';
+import { CHECK_PROMISE, mailOn } from '@/lib/mail';
 import { COD_REF, upiLink, upiOn, UTR_MISSING, UTR_SENT } from '@/lib/payments';
 import { rupee } from '@/lib/pricing';
 import { addressText, JOURNEY, journeyIndex, orderItems, signedLinks, STATUS_LABEL, supabaseAdmin, type OrderRow, type ReviewRow } from '@/lib/supabase-server';
@@ -69,13 +69,14 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
         {utrSent !== null && (
           <div className="card">
             <h3>Thank you. We have your payment details.</h3>
-            <p className="muted">{utrSent ? `You gave UPI reference number ${utrSent}. ` : ''}{CHECK_PROMISE} We have also sent this to {o.email}.</p>
+            <p className="muted">{utrSent ? `You gave UPI reference number ${utrSent}. ` : ''}{CHECK_PROMISE}{mailOn() && o.email ? ` We have also sent this to ${o.email}.` : ''}</p>
             <ol className="upi-steps">
               <li>We verify your payment.</li>
               <li>Your order is confirmed.</li>
               <li>Your custom T-shirt goes into production.</li>
             </ol>
             <p className="muted">Order ID #{code}. Need help? <Link href="/help">Contact support</Link> and mention your order ID.</p>
+            {utrSent === '' && <AddUtr orderId={o.id} />}
           </div>
         )}
 

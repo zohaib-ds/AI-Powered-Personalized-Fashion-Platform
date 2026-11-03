@@ -215,8 +215,9 @@ export default function CartView({ upi }: { upi: boolean }) {
               <legend>Payment</legend>
               <label><input type="radio" name="pay" value="now" checked={!cod} onChange={() => setPay('now')} />
                 <span><strong>{upi ? 'Pay now by UPI' : 'Pay now'}</strong>{upi && <span className="muted"> After you place the order, the next page shows a UPI QR code for the exact amount.</span>}</span></label>
-              {!hasTest && <label><input type="radio" name="pay" value="cod" checked={cod} onChange={() => setPay('cod')} />
-                <span><strong>Cash on delivery (+{rupee(PRICES.codFee)})</strong><span className="muted"> Pay the courier in cash when your shirt arrives.</span></span></label>}
+              {/* always shown; only the ₹1 payment test (admin only) cannot use it */}
+              <label className={hasTest ? 'off' : ''}><input type="radio" name="pay" value="cod" checked={cod} disabled={hasTest} onChange={() => setPay('cod')} />
+                <span><strong>Cash on delivery (+{rupee(PRICES.codFee)})</strong><span className="muted">{hasTest ? ' Not available with the Test ₹1 size. Change the size in your cart to use it.' : ' Pay the courier in cash when your shirt arrives.'}</span></span></label>
             </fieldset>
             {!upi && !cod && <div className="sample-note">Test mode: no money is charged yet. Your order is saved and marked paid so the whole flow can be tried.</div>}
             <label className="agree"><input type="checkbox" name="agree" required />
@@ -243,12 +244,16 @@ export default function CartView({ upi }: { upi: boolean }) {
         {step === 'cart' && <button className="btn primary big" disabled={noSize >= 0} onClick={() => notice.current?.showModal()}>Checkout</button>}
       </aside>
 
-      <dialog ref={notice} className="notice-dialog" aria-labelledby="noticeTitle">
+      {/* tapping outside the box closes it */}
+      <dialog ref={notice} className="notice-dialog" aria-labelledby="noticeTitle" onClick={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        if (e.target === e.currentTarget && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom)) notice.current?.close();
+      }}>
         <h2 id="noticeTitle">We deliver only in Delhi for now</h2>
         <p>Right now we can print and deliver orders only to addresses in Delhi, with a pincode that starts with 110. If your address is in Delhi, continue to checkout.</p>
-        <p className="muted">Not in Delhi? Your designs stay saved in this browser.</p>
+        <p className="muted">Not in Delhi? Tell us where you are and we will let you know when we deliver there. Your designs stay saved in this browser.</p>
         <div className="co-actions">
-          <button className="btn ghost" onClick={() => notice.current?.close()}>Back to cart</button>
+          <Link className="btn ghost" href="/your-city">Want it in your city?</Link>
           <button className="btn primary" onClick={goToDetails}>My address is in Delhi</button>
         </div>
       </dialog>

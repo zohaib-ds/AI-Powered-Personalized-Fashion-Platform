@@ -66,15 +66,36 @@ export async function sendOrderMail(kind: OrderMail, o: MailOrder): Promise<bool
     + `<p style="margin:20px 0 12px"><a href="${esc(link)}" style="color:#b8391a">See order #${esc(code)}</a></p>`
     + `<p style="margin:0 0 12px;color:#5f5a52">Need help? Reply to this email and mention order #${esc(code)}.</p><p style="margin:0;color:#5f5a52">${esc(BRAND.name)}</p></div>`;
   try {
-    const auth = { user: BRAND.email, pass: (process.env.GMAIL_APP_PASSWORD ?? '').replace(/\s+/g, '') };
-    // MAIL_SMTP_PORT points at a local test mail server; real emails go through Gmail
-    const t = process.env.MAIL_SMTP_PORT
-      ? nodemailer.createTransport({ host: '127.0.0.1', port: Number(process.env.MAIL_SMTP_PORT), secure: false, auth })
-      : nodemailer.createTransport({ service: 'gmail', auth });
-    await t.sendMail({ from: `${BRAND.name} <${BRAND.email}>`, to: o.email, replyTo: BRAND.email, subject, text, html });
+    await deliver(o.email, subject, text, html);
     return true;
   } catch (e) {
     console.error('order email failed', kind, code, (e as Error).message);
     return false;
+  }
+}
+
+async function deliver(to: string, subject: string, text: string, html: string) {
+  const auth = { user: BRAND.email, pass: (process.env.GMAIL_APP_PASSWORD ?? '').replace(/\s+/g, '') };
+  // MAIL_SMTP_PORT points at a local test mail server; real emails go through Gmail
+  const t = process.env.MAIL_SMTP_PORT
+    ? nodemailer.createTransport({ host: '127.0.0.1', port: Number(process.env.MAIL_SMTP_PORT), secure: false, auth })
+    : nodemailer.createTransport({ service: 'gmail', auth });
+  await t.sendMail({ from: `${BRAND.name} <${BRAND.email}>`, to, replyTo: BRAND.email, subject, text, html });
+}
+
+// The admin's "Send a test email": sends one to our own inbox and says in plain words what went wrong.
+export async function sendTestMail(): Promise<{ ok?: string; error?: string }> {
+  if (!process.env.GMAIL_APP_PASSWORD) {
+    return { error: 'GMAIL_APP_PASSWORD is not set on the live site. Add it in Vercel > Settings > Environment Variables, then open Deployments and Redeploy. Emails only start after the redeploy.' };
+  }
+  try {
+    await deliver(BRAND.email, `${BRAND.name} test email`, 'Order emails are working.', '<p>Order emails are working.</p>');
+    return { ok: `Sent. Check the inbox of ${BRAND.email}. Customer emails will go out the same way.` };
+  } catch (e) {
+    const m = (e as Error).message;
+    if (/535|Username and Password not accepted|Invalid login|BadCredentials/i.test(m)) {
+      return { error: `Gmail did not accept the password. GMAIL_APP_PASSWORD must be a 16 letter app password made at myaccount.google.com/apppasswords while signed in as ${BRAND.email} (with 2-Step Verification on), not the normal Gmail password. Gmail said: ${m.slice(0, 200)}` };
+    }
+    return { error: `Gmail refused the email: ${m.slice(0, 300)}` };
   }
 }

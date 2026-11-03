@@ -149,6 +149,16 @@ export interface ShipInfo {
   at: string;
 }
 
+// "Want it in your city?" answers from people outside the delivery area
+export interface CityRequestRow {
+  id: string;
+  created_at: string;
+  city: string;
+  why: string | null;
+  liked: string | null;
+  email: string | null;
+}
+
 export interface PayoutRow {
   id: string;
   created_at: string;

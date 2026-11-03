@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import AdminIdle from '@/components/AdminIdle';
-import { AddMerchantForm, MerchantDetailsForm, MerchantLoginForm } from '@/components/AdminForms';
+import { AddMerchantForm, MerchantDetailsForm, MerchantLoginForm, TestEmailForm } from '@/components/AdminForms';
 import PortalHeader from '@/components/PortalHeader';
 import PrintSpec, { Stars } from '@/components/PrintSpec';
 import Tabs, { OrderFilter } from '@/components/Tabs';
@@ -14,9 +14,10 @@ import { merchantMoney } from '@/lib/payouts';
 import { rupee } from '@/lib/pricing';
 import { openPassword } from '@/lib/printer-auth';
 import { icarryMode, icarryOn } from '@/lib/icarry';
+import { mailOn } from '@/lib/mail';
 import {
   addressText, ISSUE_LABEL, orderItems, orderPreview, payTo, signedLinks, STATUS_LABEL, supabaseAdmin,
-  type OrderRow, type PayoutRow, type PrinterRow, type ReviewRow,
+  type CityRequestRow, type OrderRow, type PayoutRow, type PrinterRow, type ReviewRow,
 } from '@/lib/supabase-server';
 import {
   assignOrder, cancelUnpaid, deletePrinter, markDelivered, markShipped, retryCourier, setPrinterActive, setReviewPublic,
@@ -39,12 +40,15 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
   const sp = await searchParams;
   const testEnds = await testUntil((await cookies()).get(TEST_COOKIE)?.value);
   const db = supabaseAdmin();
-  const [{ data: od, error }, { data: pd }, { data: rd }, { data: yd }] = await Promise.all([
+  const [{ data: od, error }, { data: pd }, { data: rd }, { data: yd }, { data: cd }] = await Promise.all([
     db.from('orders').select('*').order('created_at', { ascending: false }).limit(1000),
     db.from('printers').select('*').order('created_at', { ascending: true }),
     db.from('reviews').select('*').order('created_at', { ascending: false }).limit(200),
     db.from('payouts').select('*').order('created_at', { ascending: false }).limit(300),
+    db.from('city_requests').select('*').order('created_at', { ascending: false }).limit(500),
   ]);
+  // missing until schema.sql is run again, so an empty list then
+  const cityRequests = (cd ?? []) as CityRequestRow[];
   const orders = (od ?? []) as OrderRow[];
   const printers = (pd ?? []) as PrinterRow[];
   const reviews = (rd ?? []) as ReviewRow[];
@@ -90,6 +94,14 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
     <>
       {error && <div className="err">Could not load orders: {error.message}. If the site was just updated, run supabase/schema.sql again in Supabase.</div>}
       {!todoCount && !error && <div className="card empty">Nothing is waiting on you.</div>}
+
+      <section className="card">
+        <h3>Order emails</h3>
+        {mailOn()
+          ? <p className="muted">Customers get an email when they tap I have paid, when you confirm or cancel an order, and for cash on delivery. They come from {BRAND.email}. If customers say they got nothing, send a test email to see why.</p>
+          : <p className="low">Emails are off: GMAIL_APP_PASSWORD is not set on the live site. Add it in Vercel, then Redeploy. Send a test email for the steps.</p>}
+        <TestEmailForm />
+      </section>
 
       <section className="card">
         <h3>Payment test</h3>
@@ -464,6 +476,32 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
     </>
   );
 
+  // most asked-for cities first
+  const cityCount = Object.entries(cityRequests.reduce<Record<string, number>>((m, r) => {
+    const k = r.city.trim().toLowerCase();
+    m[k] = (m[k] ?? 0) + 1;
+    return m;
+  }, {})).sort((a, b) => b[1] - a[1]);
+  const citiesPanel = (
+    <>
+      {!cityRequests.length && <div className="card empty">No requests yet. People outside Delhi can send one with Want it in your city? at checkout.</div>}
+      {cityRequests.length > 0 && (
+        <div className="card">
+          <h3>Most asked for</h3>
+          <p>{cityCount.slice(0, 12).map(([c, n]) => `${c.replace(/\b\w/g, (x) => x.toUpperCase())} (${n})`).join(', ')}</p>
+        </div>
+      )}
+      {cityRequests.map((r) => (
+        <div key={r.id} className="card city-req">
+          <div className="row between"><strong>{r.city}</strong><span className="muted">{fmt(r.created_at)}</span></div>
+          {r.why && <p><span className="muted">Why: </span>{r.why}</p>}
+          {r.liked && <p><span className="muted">Found amazing: </span>{r.liked}</p>}
+          {r.email && <p className="muted">{r.email}</p>}
+        </div>
+      ))}
+    </>
+  );
+
   return (
     <>
       <PortalHeader label="Admin" right={<Link href="/admin/login" className="btn small ghost" prefetch={false}>Sign out</Link>} />
@@ -477,8 +515,9 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
             { key: 'printers', label: `Merchants (${printers.length})` },
             { key: 'money', label: 'Money' },
             { key: 'reviews', label: `Reviews (${reviews.length})` },
+            { key: 'cities', label: `City requests (${cityRequests.length})` },
           ]}
-          panels={{ todo, orders: ordersPanel, printers: merchants, money: moneyPanel, reviews: reviewsPanel }}
+          panels={{ todo, orders: ordersPanel, printers: merchants, money: moneyPanel, reviews: reviewsPanel, cities: citiesPanel }}
         />
       </div>
     </>
