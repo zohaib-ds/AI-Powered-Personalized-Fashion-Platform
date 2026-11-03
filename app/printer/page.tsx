@@ -108,27 +108,28 @@ export default async function PrinterHome({ searchParams }: { searchParams: Prom
       {noAddress}
       {!printing.length && <div className="card empty">Nothing is printing. Tap Start printing on a new order to move it here.</div>}
       {printing.map((o) => orderCard(o, false))}
+    </>
+  );
 
-      {waiting.length > 0 && (
-        <>
-          <h2 className="list-h">Waiting for the courier ({waiting.length})</h2>
-          {waiting.map((o) => {
-            const sr = o.shiprocket;
-            return (
-              <div key={o.id} className="card m-wait">
-                <div>
-                  <strong>Order #{o.code}</strong> · {o.qty} piece{o.qty > 1 ? 's' : ''}
-                  <div className="muted">
-                    {sr?.awb ? <>Courier {sr.courier ?? ''} booked, tracking {sr.awb}. Print the label and stick it on the parcel.</> : 'WearSketch is booking the courier. Keep the parcel packed and ready.'}
-                  </div>
-                </div>
-                {sr?.label_url && <a className="btn primary" href={sr.label_url} target="_blank" rel="noreferrer">Download label</a>}
-                {printFiles(o, false)}
+  // after "Printing done, request pickup", orders wait here for the courier
+  const pickupPanel = (
+    <>
+      {!waiting.length && <div className="card empty">No parcels waiting for pickup. Orders come here after you tap Printing done, request pickup.</div>}
+      {waiting.map((o) => {
+        const sr = o.shiprocket;
+        return (
+          <div key={o.id} className="card m-wait">
+            <div>
+              <strong>Order #{o.code}</strong> · {o.qty} piece{o.qty > 1 ? 's' : ''}
+              <div className="muted">
+                {sr?.awb ? <>Courier {sr.courier ?? ''} booked, tracking {sr.awb}. Print the label and stick it on the parcel.</> : 'WearSketch is booking the courier. Keep the parcel packed and ready.'}
               </div>
-            );
-          })}
-        </>
-      )}
+            </div>
+            {sr?.label_url && <a className="btn primary" href={sr.label_url} target="_blank" rel="noreferrer">Download label</a>}
+            {printFiles(o, false)}
+          </div>
+        );
+      })}
     </>
   );
 
@@ -174,7 +175,7 @@ export default async function PrinterHome({ searchParams }: { searchParams: Prom
         <div className="portal-head">
           <div>
             <h1>Hi, {printer.name}</h1>
-            <p className="muted">New orders come in on their own. Tap Start printing on one, and when it is printed and packed, tap Printing done, request pickup.</p>
+            <p className="muted">New orders come in on their own. Tap Start printing on one, and when it is printed and packed, tap Printing done, request pickup. It then waits under Pickup for the courier.</p>
           </div>
         </div>
         <Tabs
@@ -182,10 +183,11 @@ export default async function PrinterHome({ searchParams }: { searchParams: Prom
           tabs={[
             { key: 'new', label: `New orders (${fresh.length})` },
             { key: 'printing', label: `Currently printing (${printing.length})` },
+            { key: 'pickup', label: `Pickup (${waiting.length})` },
             { key: 'money', label: 'Money' },
             { key: 'account', label: 'Account' },
           ]}
-          panels={{ new: newPanel, printing: printingPanel, money: moneyPanel, account }}
+          panels={{ new: newPanel, printing: printingPanel, pickup: pickupPanel, money: moneyPanel, account }}
         />
       </div>
     </>

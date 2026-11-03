@@ -18,7 +18,10 @@ export async function sendUtr(_prev: string | null, form: FormData): Promise<str
   const { data } = await db.from('orders').select('*').eq('id', id).maybeSingle();
   const o = data as OrderRow | null;
   if (!o || o.payment_ref === COD_REF) return 'Order not found.';
-  if (o.status !== 'pending_payment' || o.payment_ref?.startsWith(UTR_SENT)) return null;
+  if (o.status !== 'pending_payment') return null;
+  // after I have paid, the customer can still add the reference number once
+  const adding = o.payment_ref?.startsWith(UTR_SENT);
+  if (adding && (o.payment_ref !== UTR_SENT || !utr)) return null;
   // once we could not find the payment, we need the number to look again
   if (!utr && o.payment_ref?.startsWith(UTR_MISSING)) return 'Enter the 12 digit UPI reference number from your UPI app. It is only numbers, like 412345678901.';
   // one payment can only pay for one order

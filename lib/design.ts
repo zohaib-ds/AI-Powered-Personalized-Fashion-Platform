@@ -24,7 +24,7 @@ export interface ZoneInfo {
 }
 
 // Prints are allowed on the front, the back and the outer face of each sleeve.
-// Never on the side seams. Front and back fit one A3 sheet, sleeves a 9 cm square.
+// Never on the side seams. Front (28 x 38 cm) and back (28 x 40 cm) each fit one A3 sheet, sleeves a 9 cm square.
 const box = (cx: number, top: number, wCm: number, hCm: number) => ({
   x: Math.round(cx - (wCm * PX_PER_CM) / 2),
   y: Math.round(top),
@@ -36,8 +36,8 @@ const box = (cx: number, top: number, wCm: number, hCm: number) => ({
 
 export const ZONE_INFO: Record<Zone, ZoneInfo> = {
   // front neckline sits at y≈1064, back neckline at y≈972 on the texture
-  front: { label: 'Front', short: 'Front', ...box(448, 1064 + 7 * PX_PER_CM, 28, 35) },
-  back: { label: 'Back', short: 'Back', ...box(1440, 972 + 8 * PX_PER_CM, 28, 35) },
+  front: { label: 'Front', short: 'Front', ...box(448, 1064 + 7 * PX_PER_CM, 28, 38) },
+  back: { label: 'Back', short: 'Back', ...box(1440, 972 + 8 * PX_PER_CM, 28, 40) },
   // outer face of each sleeve, centred between shoulder and cuff. Left and
   // right are the wearer's: the left sleeve is on your right when facing the shirt.
   sleeveL: { label: 'Left sleeve', short: 'L sleeve', ...box(440, 520, 9, 9) },

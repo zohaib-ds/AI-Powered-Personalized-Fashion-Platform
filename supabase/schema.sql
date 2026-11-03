@@ -118,11 +118,23 @@ create table if not exists public.payouts (
 );
 create index if not exists payouts_printer_idx on public.payouts (printer_id, created_at desc);
 
+-- "Want it in your city?": people outside Delhi tell us where they are (November 2026)
+create table if not exists public.city_requests (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  city text not null,
+  why text,
+  liked text,
+  email text
+);
+create index if not exists city_requests_created_idx on public.city_requests (created_at desc);
+
 -- Only the server (secret key) reads or writes these tables. No public access.
 alter table public.orders enable row level security;
 alter table public.printers enable row level security;
 alter table public.reviews enable row level security;
 alter table public.payouts enable row level security;
+alter table public.city_requests enable row level security;
 
 -- Print files: private bucket, the server hands out signed upload/download links.
 insert into storage.buckets (id, name, public)

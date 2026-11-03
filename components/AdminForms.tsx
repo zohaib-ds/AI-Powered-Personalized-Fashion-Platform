@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
-import { createPrinter, savePrinterDetails, setPrinterLogin, type Credentials, type CredentialsResult } from '@/app/admin/actions';
+import { createPrinter, savePrinterDetails, setPrinterLogin, testEmail, type Credentials, type CredentialsResult } from '@/app/admin/actions';
 import type { PrinterRow } from '@/lib/supabase-server';
 
 function Shown({ c, note }: { c: Credentials; note: string }) {
@@ -19,6 +19,17 @@ function Shown({ c, note }: { c: Credentials; note: string }) {
 
 function Failed({ r }: { r: CredentialsResult }) {
   return r && 'error' in r ? <p className="err" role="alert">{r.error}</p> : null;
+}
+
+export function TestEmailForm() {
+  const [r, action, pending] = useActionState(testEmail, null);
+  return (
+    <form action={action} className="stack">
+      <button className="btn small" disabled={pending}>{pending ? 'Sending…' : 'Send a test email'}</button>
+      {r?.ok && <p className="ok" role="status">{r.ok}</p>}
+      {r?.error && <p className="err" role="alert">{r.error}</p>}
+    </form>
+  );
 }
 
 export function AddMerchantForm() {
