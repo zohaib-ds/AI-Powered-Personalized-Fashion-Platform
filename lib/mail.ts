@@ -13,7 +13,7 @@ export const mailOn = () => !!(BRAND.email && process.env.GMAIL_APP_PASSWORD);
 // How long checking a UPI payment takes, as promised on the order page and in the first email.
 export const CHECK_PROMISE = 'We check payments every day, and your order is usually confirmed within 24 hours.';
 
-export type OrderMail = 'claimed' | 'confirmed' | 'cod' | 'cancelled';
+export type OrderMail = 'claimed' | 'confirmed' | 'cod' | 'missing' | 'cancelled';
 
 type MailOrder = Pick<OrderRow, 'id' | 'code' | 'customer_name' | 'email' | 'total'>;
 
@@ -42,6 +42,13 @@ function content(kind: OrderMail, o: MailOrder): { subject: string; lines: strin
         lines: [hi, `Thank you for your ${BRAND.name} order! It is confirmed and goes to our print partner now.`,
           `You chose cash on delivery: please keep ${rupee(o.total)} ready for the courier.`,
           'Your order page shows each step as your shirt is printed and shipped.'],
+      };
+    case 'missing':
+      return {
+        subject: `We could not find your payment for order #${code}`,
+        lines: [hi, `We checked our bank account but could not find a payment of ${rupee(o.total)} for order #${code} yet.`,
+          'If you paid, open your order page and enter the 12 digit UPI reference number from your UPI app, or reply to this email with it. We will check again as soon as we have it.',
+          'If you have not paid yet, you can still pay with the QR code on your order page.'],
       };
     case 'cancelled':
       return {

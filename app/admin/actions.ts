@@ -339,11 +339,12 @@ export async function paymentMissing(form: FormData) {
   const id = String(form.get('id') || '');
   if (!isId(id)) return;
   const db = supabaseAdmin();
-  const { data } = await db.from('orders').select('status,payment_ref').eq('id', id).single();
-  const o = data as Pick<OrderRow, 'status' | 'payment_ref'> | null;
+  const { data } = await db.from('orders').select('*').eq('id', id).single();
+  const o = data as OrderRow | null;
   if (!o || o.status !== 'pending_payment' || !o.payment_ref?.startsWith(UTR_SENT)) return;
-  // the order page asks the customer to check the number and send it again
+  // the order page asks the customer to check the number and send it again, and we email them
   await db.from('orders').update({ payment_ref: UTR_MISSING + o.payment_ref.slice(UTR_SENT.length), updated_at: new Date().toISOString() }).eq('id', id);
+  await sendOrderMail('missing', o);
   revalidatePath('/admin');
   revalidatePath(`/order/${id}`);
 }

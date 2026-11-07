@@ -111,6 +111,7 @@ textarea.inp { resize: vertical; }
 .seg button:hover { background: var(--stage-2); }
 .seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
 .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.quick { display: none; }
 .dock { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; }
 .dock .seg button { padding: 10px 16px; font-size: 14px; }
 .dock svg { width: 17px; height: 17px; }
@@ -212,6 +213,17 @@ tr.total td { border-top: 1.5px solid var(--ink-line); padding-top: 9px; font-we
   .rail-scroll { overflow: visible; }
   .order-bar { position: sticky; bottom: 0; }
   .dock .seg button { padding: 10px 12px; }
+  /* the main tools, right on the shirt view, so nobody has to find them below */
+  .quick { display: grid; grid-template-columns: repeat(4, 1fr); order: -1; flex: none; background: var(--panel); border-bottom: 1.5px solid var(--ink-line); }
+  .quick button { all: unset; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px 7px; font-weight: 600; font-size: 12.5px; color: var(--fg); }
+  .quick button + button { border-left: 1px solid var(--line); }
+  .quick button:active { background: var(--stage-2); }
+  .quick button:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+  .quick svg { width: 20px; height: 20px; }
+  .rail .sec { scroll-margin-top: 8px; }
+  /* a smaller order bar leaves more of the shirt and tools in view */
+  .order-bar { padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); gap: 8px; }
+  .order-bar .warn { font-size: 12.5px; padding: 6px 10px; }
 }
 
 /* ---------- site ---------- */
@@ -327,7 +339,8 @@ tr.total td { border-top: 1.5px solid var(--ink-line); padding-top: 9px; font-we
 
 /* order page */
 .order-hero h1 { font-size: clamp(28px, 4.4vw, 40px); max-width: 22ch; }
-.journey { list-style: none; padding: 0; margin: 28px 0; display: grid; grid-template-columns: repeat(5, 1fr); position: relative; }
+/* one row, however many steps there are (stacks on phones below) */
+.journey { list-style: none; padding: 0; margin: 28px 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); position: relative; }
 .journey li { position: relative; display: grid; align-content: start; justify-items: center; text-align: center; gap: 8px; font-size: 13.5px; color: var(--muted); padding: 0 4px; }
 .journey li::before { content: ""; position: absolute; top: 8px; left: -50%; right: 50%; height: 2px; background: var(--line); }
 .journey li:first-child::before { display: none; }
@@ -337,6 +350,7 @@ tr.total td { border-top: 1.5px solid var(--ink-line); padding-top: 9px; font-we
 .journey li.now .j-dot { background: var(--accent); border-color: var(--accent); }
 .journey li.now { color: var(--fg); font-weight: 600; }
 .j-sub { font-family: var(--f-mono); font-size: 11.5px; color: var(--fg); }
+@media (min-width: 561px) and (max-width: 760px) { .journey li { font-size: 12.5px; padding: 0 2px; } }
 .order-cols { display: grid; gap: 0; }
 .order-item img.views { border-bottom: 1px solid var(--line); }
 .oi-body { padding: 14px 20px; display: grid; gap: 2px; }
@@ -519,7 +533,7 @@ img.spec-views { border: 1px solid var(--line); margin-bottom: 14px; }
   .ci-price { grid-column: 3; grid-row: 2; }
   .reset-pw { justify-items: start; }
   .hero-facts { grid-template-columns: 1fr 1fr; }
-  .journey { grid-template-columns: 1fr; gap: 14px; }
+  .journey { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: 1fr; gap: 14px; }
   .journey li { grid-template-columns: 18px 1fr; justify-items: start; text-align: left; gap: 2px 12px; }
   .journey li::before { display: none; }
   .j-sub { grid-column: 2; }
@@ -606,7 +620,13 @@ table.about-prices { max-width: 560px; margin-bottom: 14px; }
 .upi-steps { padding-left: 20px; margin: 0 0 12px; }
 .upi-steps li { margin-bottom: 6px; }
 .upi-open { display: none; }
-.upi-form { display: grid; gap: 8px; justify-items: start; max-width: 360px; margin-top: 14px; }
+.upi-form { display: grid; gap: 8px; justify-items: start; margin-top: 14px; }
+.upi-form .inp { max-width: 360px; }
+.upi-form .paid-btn { justify-self: stretch; width: 100%; }
+.paid-dialog { width: min(520px, calc(100vw - 32px)); }
+.paid-dialog .upi-steps { margin: 12px 0; }
+.paid-dialog .co-actions { display: flex; gap: 10px; }
+.paid-dialog .co-actions .btn { flex: 1; }
 .upi-form label { font-weight: 600; }
 .upi-form p { margin: 0; font-size: 14px; }
 .upi-form .inp { width: 100%; }

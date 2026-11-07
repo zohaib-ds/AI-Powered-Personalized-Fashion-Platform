@@ -65,7 +65,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
           </div>
         </div>
 
-        {qr && link && <UpiPay orderId={o.id} amount={rupee(o.total)} qr={qr} link={link} missing={utrMissing} />}
+        {qr && link && <UpiPay orderId={o.id} code={code} amount={rupee(o.total)} qr={qr} link={link} missing={utrMissing} email={mailOn() && o.email ? o.email : null} />}
         {utrSent !== null && (
           <div className="card">
             <h3>Thank you. We have your payment details.</h3>
