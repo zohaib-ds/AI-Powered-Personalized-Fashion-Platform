@@ -55,8 +55,31 @@ function brandData() {
   };
 }
 
+// Simple line icons for the home page cards (decoration only).
+const ICON: Record<string, React.ReactNode> = {
+  pen: <><path d="M4 20h4L19 9l-4-4L4 16v4z" /><path d="M13.5 6.5l4 4" /></>,
+  cart: <><circle cx="9" cy="20" r="1.4" /><circle cx="18" cy="20" r="1.4" /><path d="M2 3h3l2.6 12.2a1 1 0 0 0 1 .8h9.3a1 1 0 0 0 1-.8L21 7H6" /></>,
+  printer: <><path d="M6 9V3h12v6" /><rect x="3" y="9" width="18" height="8" rx="2" /><path d="M7 14h10v7H7z" /></>,
+  truck: <><path d="M2 5h12v11H2z" /><path d="M14 9h4l3 3.5V16h-7" /><circle cx="6" cy="18" r="2" /><circle cx="17" cy="18" r="2" /></>,
+  front: <><path d="M8 3L3 6l2 4 2-1v12h10V9l2 1 2-4-5-3a4 4 0 0 1-8 0z" /><rect x="10" y="10" width="4" height="5" /></>,
+  back: <><path d="M8 3L3 6l2 4 2-1v12h10V9l2 1 2-4-5-3c-1 1-2.5 1.5-4 1.5S9 4 8 3z" /><path d="M10 11h4M10 14h4" /></>,
+  sleeve: <><path d="M8 3L3 6l2 4 2-1v12h10V9l2 1 2-4-5-3a4 4 0 0 1-8 0z" /><path d="M3.6 7.2l1.6 3.2" strokeWidth="3.2" /></>,
+  ruler: <><path d="M3 17L17 3l4 4L7 21z" /><path d="M7 13l2 2M10 10l2 2M13 7l2 2" /></>,
+  layers: <><path d="M12 3l9 5-9 5-9-5z" /><path d="M3 13l9 5 9-5" /></>,
+  cube: <><path d="M12 2l9 5v10l-9 5-9-5V7z" /><path d="M12 12l9-5M12 12v10M12 12L3 7" /></>,
+};
+function Icon({ name }: { name: string }) {
+  return <svg className="ic" viewBox="0 0 24 24" aria-hidden="true">{ICON[name]}</svg>;
+}
+const STEP_ICONS = ['pen', 'cart', 'printer', 'truck'];
+
 export default async function Home() {
   const reviews = await publicReviews();
+  const AREAS: [string, string, { wCm: number; hCm: number }][] = [
+    ['front', 'Front', ZONE_INFO.front],
+    ['back', 'Back', ZONE_INFO.back],
+    ['sleeve', 'Each sleeve', ZONE_INFO.sleeveL],
+  ];
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(brandData()).replace(/</g, '\\u003c') }} />
@@ -78,11 +101,15 @@ export default async function Home() {
                 <div><dt>Minimum order</dt><dd>1 shirt</dd></div>
               </dl>
             </div>
-            <ShirtShowcase />
+            <div className="hero-visual">
+              <div className="hero-card"><ShirtShowcase /></div>
+              <span className="float-badge fb-1"><Icon name="cube" />Live 3D preview</span>
+              <span className="float-badge fb-2">Front, back and sleeves</span>
+            </div>
           </div>
         </section>
 
-        <section id="how" className="section">
+        <section id="how" className="section dark">
           <div className="wrap">
             <div className="section-head">
               <div>
@@ -94,7 +121,10 @@ export default async function Home() {
             <ol className="steps">
               {STEPS.map(([title, text], i) => (
                 <li key={title}>
-                  <span className="n">0{i + 1}</span>
+                  <div className="step-top">
+                    <span className="n">{i + 1}</span>
+                    <Icon name={STEP_ICONS[i]} />
+                  </div>
                   <h3>{title}</h3>
                   <p>{text}</p>
                 </li>
@@ -103,34 +133,40 @@ export default async function Home() {
           </div>
         </section>
 
-        <section id="areas" className="section alt">
+        <section id="areas" className="section">
           <div className="wrap areas">
             <div>
               <p className="eyebrow">Print areas</p>
               <h2>Front, back and both sleeves</h2>
               <p className="lead">The dashed boxes in the studio show exactly where ink can go. Anything outside them is not printed. The sides of the shirt stay blank.</p>
-              <table className="area-table"><tbody>
-                <tr><td>Front</td><td>{ZONE_INFO.front.wCm} × {ZONE_INFO.front.hCm} cm</td></tr>
-                <tr><td>Back</td><td>{ZONE_INFO.back.wCm} × {ZONE_INFO.back.hCm} cm</td></tr>
-                <tr><td>Each sleeve</td><td>{ZONE_INFO.sleeveL.wCm} × {ZONE_INFO.sleeveL.hCm} cm</td></tr>
-              </tbody></table>
+              <ul className="area-cards">
+                {AREAS.map(([icon, label, z]) => (
+                  <li key={label}>
+                    <Icon name={icon} />
+                    <span className="ac-label">{label}</span>
+                    <span className="ac-size">{z.wCm} × {z.hCm} cm</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <svg className="area-diagram" viewBox="0 0 420 260" role="img" aria-label="T-shirt outline from the front and the back with the print areas marked">
-              <g className="tee">
-                <path d="M70 40 L110 20 Q130 42 150 20 L190 40 L210 80 L185 92 L180 80 L180 230 L80 230 L80 80 L75 92 L50 80 Z" />
-                <path d="M230 40 L270 20 Q290 30 310 20 L350 40 L370 80 L345 92 L340 80 L340 230 L240 230 L240 80 L235 92 L210 80 Z" />
-              </g>
-              <rect className="zone" x="98" y="62" width="64" height="80" />
-              <rect className="zone" x="258" y="56" width="64" height="80" />
-              <rect className="zone sm" x="186" y="52" width="14" height="14" transform="rotate(25 193 59)" />
-              <rect className="zone sm" x="58" y="52" width="14" height="14" transform="rotate(-25 65 59)" />
-              <text x="130" y="250" textAnchor="middle">Front</text>
-              <text x="290" y="250" textAnchor="middle">Back</text>
-            </svg>
+            <div className="diagram-card">
+              <svg className="area-diagram" viewBox="0 0 420 260" role="img" aria-label="T-shirt outline from the front and the back with the print areas marked">
+                <g className="tee">
+                  <path d="M70 40 L110 20 Q130 42 150 20 L190 40 L210 80 L185 92 L180 80 L180 230 L80 230 L80 80 L75 92 L50 80 Z" />
+                  <path d="M230 40 L270 20 Q290 30 310 20 L350 40 L370 80 L345 92 L340 80 L340 230 L240 230 L240 80 L235 92 L210 80 Z" />
+                </g>
+                <rect className="zone" x="98" y="62" width="64" height="80" />
+                <rect className="zone" x="258" y="56" width="64" height="80" />
+                <rect className="zone sm" x="186" y="52" width="14" height="14" transform="rotate(25 193 59)" />
+                <rect className="zone sm" x="58" y="52" width="14" height="14" transform="rotate(-25 65 59)" />
+                <text x="130" y="250" textAnchor="middle">Front</text>
+                <text x="290" y="250" textAnchor="middle">Back</text>
+              </svg>
+            </div>
           </div>
         </section>
 
-        <section id="pricing" className="section">
+        <section id="pricing" className="section alt">
           <div className="wrap">
             <div className="section-head">
               <div>
@@ -139,24 +175,26 @@ export default async function Home() {
               </div>
               <p>Every price includes the shirt and the printing. The price depends only on how many areas you print, and the studio shows it as you design.</p>
             </div>
-            <div className="price-wrap">
-              <table className="price-table">
-                <thead><tr><th>Printed areas</th><th>Per shirt</th></tr></thead>
-                <tbody>
-                  {PRICE_ROWS.map(([label, note, price]) => <tr key={label}><td><strong>{label}</strong><span className="muted td-note">{note}</span></td><td>{rupee(price)}</td></tr>)}
-                </tbody>
-              </table>
-              <ul className="price-notes">
-                <li><strong>Delivery: {rupee(D.base)} for up to {D.perShirts} shirts</strong><span>Then {rupee(D.step)} more for every {D.perShirts} shirts after that, for the whole order. We deliver to your door.</span></li>
-                <li><strong>Sizes S to XXL</strong><span>Same price for every size, in {COLOURS.length} colours.</span></li>
-                <li><strong>Several designs in one order</strong><span>Add up to {PRICES.maxItems} designs to your cart, with up to {PRICES.maxQty} shirts of each.</span></li>
-              </ul>
-            </div>
+            <ul className="price-cards">
+              {PRICE_ROWS.map(([label, note, price], i) => (
+                <li key={label} className={i === PRICE_ROWS.length - 1 ? 'top' : undefined}>
+                  {i === PRICE_ROWS.length - 1 && <span className="pc-badge">Lowest price per area</span>}
+                  <span className="pc-label">{label}</span>
+                  <span className="pc-price">{rupee(price)}<small>per shirt</small></span>
+                  <span className="pc-note">{note}</span>
+                </li>
+              ))}
+            </ul>
+            <ul className="price-notes">
+              <li><Icon name="truck" /><div><strong>Delivery: {rupee(D.base)} for up to {D.perShirts} shirts</strong><span>Then {rupee(D.step)} more for every {D.perShirts} shirts after that, for the whole order. We deliver to your door.</span></div></li>
+              <li><Icon name="ruler" /><div><strong>Sizes S to XXL</strong><span>Same price for every size, in {COLOURS.length} colours.</span></div></li>
+              <li><Icon name="layers" /><div><strong>Several designs in one order</strong><span>Add up to {PRICES.maxItems} designs to your cart, with up to {PRICES.maxQty} shirts of each.</span></div></li>
+            </ul>
           </div>
         </section>
 
         {reviews.length > 0 && (
-          <section className="section alt">
+          <section className="section">
             <div className="wrap">
               <div className="section-head">
                 <div>
@@ -195,8 +233,13 @@ export default async function Home() {
 
         <section className="cta-line">
           <div className="wrap">
-            <p>Your design is saved in your browser as you go, so you can come back to it later.</p>
-            <Link href="/studio" className="btn primary big">Open the studio</Link>
+            <div className="cta-band">
+              <div>
+                <h2>Ready to make yours?</h2>
+                <p>Your design is saved in your browser as you go, so you can come back to it later.</p>
+              </div>
+              <Link href="/studio" className="btn hot big">Open the studio</Link>
+            </div>
           </div>
         </section>
       </main>

@@ -149,8 +149,8 @@ export function paintFabric(ctx: CanvasRenderingContext2D, color: string) {
 // pale paper for dark ones, so the shirt always stands out.
 export function backdrop(hex: string) {
   return hexLum(hex) > 0.5
-    ? { bg: '#c9c1b2', fg: '#1e1d1b', muted: 'rgba(30,29,27,.72)', shadow: 0.5 }
-    : { bg: '#ece6db', fg: '#1e1d1b', muted: 'rgba(30,29,27,.66)', shadow: 1 };
+    ? { bg: '#cdd5e3', fg: '#14161d', muted: 'rgba(20,22,29,.72)', shadow: 0.5 }
+    : { bg: '#eef1f7', fg: '#14161d', muted: 'rgba(20,22,29,.66)', shadow: 1 };
 }
 
 // ---------- scene ----------
