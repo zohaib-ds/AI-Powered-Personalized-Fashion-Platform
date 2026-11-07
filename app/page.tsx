@@ -125,10 +125,7 @@ export default async function Home() {
                 <div><dt>Minimum order</dt><dd>1 shirt</dd></div>
               </dl>
             </div>
-            <div className="hero-photo">
-              <Photo src="/photos/hero.jpg" alt="A customer wearing a T-shirt printed by WearSketch"
-                fallback={<img src="/home/step-design.jpg" alt="The WearSketch 3D design studio" />} />
-            </div>
+            <div className="hero-visual"><ShirtShowcase /></div>
           </div>
         </section>
 
@@ -143,7 +140,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section id="how" className="section teal">
+        <section id="how" className="section soft">
           <div className="wrap">
             <div className="section-head center">
               <p className="eyebrow">How an order works</p>
@@ -160,6 +157,14 @@ export default async function Home() {
                 </li>
               ))}
             </ol>
+          </div>
+        </section>
+
+        <section className="banner" aria-label="Printed one by one">
+          <Photo src="/photos/banner.jpg" alt="" className="banner-img" />
+          <div className="wrap banner-in">
+            <h2>Printed one by one, for you</h2>
+            <p>Every order is printed by hand from a full size 300 DPI file of your design, then packed and sent to your door.</p>
           </div>
         </section>
 
@@ -193,7 +198,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section id="pricing" className="section teal">
+        <section id="pricing" className="section dark">
           <div className="wrap price-wrap">
             <div>
               <p className="eyebrow">Pricing</p>
@@ -216,27 +221,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="banner" aria-label="Printed one by one">
-          <Photo src="/photos/banner.jpg" alt="" className="banner-img" />
-          <div className="wrap banner-in">
-            <h2>Printed one by one, for you</h2>
-            <p>Every order is printed by hand from a full size 300 DPI file of your design, then packed and sent to your door.</p>
-          </div>
-        </section>
-
-        <section id="try" className="section">
-          <div className="wrap try">
-            <div>
-              <p className="eyebrow">Try it here</p>
-              <h2>Turn the shirt. Pick a colour.</h2>
-              <p className="lead">This is the same 3D model you design on in the studio. Drag it to see the back and the sleeves, then open the studio to make your own.</p>
-              <Link href="/studio" className="btn primary big">Open the studio</Link>
-            </div>
-            <ShirtShowcase />
-          </div>
-        </section>
-
-        <section id="areas" className="section soft">
+        <section id="areas" className="section">
           <div className="wrap areas">
             <div>
               <p className="eyebrow">Print areas</p>
@@ -307,7 +292,7 @@ export default async function Home() {
           <div className="wrap cta-in">
             <h2>Ready to make yours?</h2>
             <p>Your design is saved in your browser as you go, so you can come back to it later.</p>
-            <Link href="/studio" className="btn light big">Open the studio</Link>
+            <Link href="/studio" className="btn primary big">Open the studio</Link>
           </div>
         </section>
       </main>

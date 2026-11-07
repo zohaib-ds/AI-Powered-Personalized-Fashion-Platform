@@ -24,7 +24,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#f6c7a3',
+  themeColor: '#ffffff',
 };
 
 // UI fonts (Archivo, IBM Plex Mono) plus the print fonts, loaded by family name so the canvas can draw them.
