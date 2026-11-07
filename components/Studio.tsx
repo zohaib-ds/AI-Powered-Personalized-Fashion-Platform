@@ -19,6 +19,15 @@ const Icon = {
   move: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3" /></svg>,
   eraser: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 21-4-4L14 6l6 6-9 9Z" /><path d="M7 21h13" /><path d="m9 11 6 6" /></svg>,
   pen: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>,
+  text: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6V4h16v2" /><path d="M12 4v16" /><path d="M9 20h6" /></svg>,
+  image: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-5-9 9" /></svg>,
+  colour: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3 3 6l2 4 2-1v12h10V9l2 1 2-4-5-3a4 4 0 0 1-8 0Z" /></svg>,
+};
+
+// On phones the tools sit below the shirt, so the shirt view gets a row of the main tools.
+const goTo = (id: string, focus?: string) => {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (focus) setTimeout(() => (document.getElementById(focus) as HTMLInputElement | null)?.focus({ preventScroll: true }), 400);
 };
 
 export default function Studio() {
@@ -147,6 +156,12 @@ export default function Studio() {
             <CartLink className="btn cart-btn" />
           </div>
         </div>
+        <div className="quick" role="group" aria-label="Add to your shirt">
+          <button type="button" onClick={() => goTo('secText', 'txt')}>{Icon.text}Text</button>
+          <button type="button" onClick={() => (document.getElementById('file') as HTMLInputElement | null)?.click()}>{Icon.image}Image</button>
+          <button type="button" onClick={() => document.getElementById('pencil')?.click()}>{Icon.pen}Draw</button>
+          <button type="button" onClick={() => goTo('secColour')}>{Icon.colour}Colour</button>
+        </div>
         <div className="selbar" id="selBar" hidden role="group" aria-label="Selected print">
           <button id="barMinus" aria-label="Make smaller">&minus;</button>
           <span id="barSize" className="barval">100%</span>
@@ -177,12 +192,12 @@ export default function Studio() {
             <p className="note">Front, back and the outside of each sleeve. Nothing prints on the sides.</p>
           </div>
 
-          <div className="sec">
+          <div className="sec" id="secColour">
             <h2>Shirt colour <small id="colorName">White</small></h2>
             <div className="swatches" id="swatches" />
           </div>
 
-          <div className="sec">
+          <div className="sec" id="secDraw">
             <h2>Draw <small id="penLabel">Pencil</small></h2>
             <div className="seg pen-seg" role="group" aria-label="Drawing tool">
               <button id="pencil" aria-pressed="true">{Icon.pen}Pencil</button>
@@ -197,7 +212,7 @@ export default function Studio() {
             <p className="note">Each time you pick the pencil, your next lines start a new drawing that you can move on its own.</p>
           </div>
 
-          <div className="sec">
+          <div className="sec" id="secText">
             <h2>Text <small>Edits the selected text</small></h2>
             <label className="lbl">Add it to</label>
             {zonePicker('Where the text goes')}
@@ -209,7 +224,7 @@ export default function Studio() {
             <button className="btn primary" id="addText">Add text</button>
           </div>
 
-          <div className="sec">
+          <div className="sec" id="secImage">
             <h2>Image</h2>
             <label className="lbl">Add it to</label>
             {zonePicker('Where the image goes')}
