@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { sendOrderMail } from '@/lib/mail';
 import { COD_REF, isUtr, upiOn, UTR_MISSING, UTR_SENT } from '@/lib/payments';
 import { stampStatus, supabaseAdmin, type OrderRow } from '@/lib/supabase-server';
@@ -37,7 +38,8 @@ export async function sendUtr(_prev: string | null, form: FormData): Promise<str
     .update({ payment_ref: UTR_SENT + utr, updated_at: now, status_times: stampStatus(o.status_times, 'payment_claimed', now) })
     .eq('id', id).eq('status', 'pending_payment');
   if (error) return 'Could not save it. Please try again.';
-  if (first) await sendOrderMail('claimed', o);
+  // the email goes out after the reply, so the customer is not kept waiting for Gmail
+  if (first) after(() => sendOrderMail('claimed', o));
   revalidatePath(`/order/${id}`);
   revalidatePath('/admin');
   return null;
