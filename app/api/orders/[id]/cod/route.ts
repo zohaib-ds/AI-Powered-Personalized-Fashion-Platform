@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { giveToMerchant } from '@/lib/auto-assign';
 import { sendOrderMail } from '@/lib/mail';
 import { COD_REF } from '@/lib/payments';
@@ -25,7 +25,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (error) return NextResponse.json({ error: 'Could not confirm the order. Please try again.' }, { status: 500 });
   if (moved?.length) {
     await giveToMerchant(id);
-    await sendOrderMail('cod', o);
+    // the email goes out after the reply, so the customer is not kept waiting for Gmail
+    after(() => sendOrderMail('cod', o));
   }
   return NextResponse.json({ ok: true, status: 'paid' });
 }

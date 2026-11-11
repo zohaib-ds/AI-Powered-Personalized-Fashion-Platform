@@ -8,6 +8,7 @@ import {
   type Colour, type PrintSummary, type Zone,
 } from '../design';
 import { aiCut, edgeKind, needsDownload, opaqueBox, plainCut } from './cutout';
+import { makePicker } from './pick';
 import { backdrop, createShirtScene, loadShirtGeometry, paintFabric, type ShirtScene } from './shirt';
 
 // screen-print style inks
@@ -105,12 +106,19 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
   let uid = 1;
   const undoStack: { objects: Obj[]; sel: number | null; colour: Colour }[] = [];
   const selected = () => state.objects.find((o) => o.id === state.sel) ?? null;
-  let saveTimer = 0;
+  let saveTimer = 0, penDown = false;
   let restored = false;
+  // Saving and the price summary read the design back, which is slow on phones, so they wait
+  // until the finger or mouse is lifted instead of running in the middle of a stroke.
+  const settle = () => {
+    if (penDown) { saveTimer = window.setTimeout(settle, 300); return; }
+    persist();
+    onChange(summary());
+  };
   const dirty = () => {
     state.dirty = true;
     clearTimeout(saveTimer);
-    saveTimer = window.setTimeout(() => { persist(); onChange(summary()); }, 300);
+    saveTimer = window.setTimeout(settle, 300);
   };
 
   function measure(o: TextObj) {
@@ -194,13 +202,18 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
     }
     return { c, b };
   }
-  function renderDraw(o: DrawObj) {
-    const b = drawBounds(o);
+  // While a pen stroke is being drawn, the cache holds the finished strokes only and the
+  // live stroke is painted straight onto the shirt, so each new point costs one short path
+  // instead of redrawing the whole drawing.
+  function renderDraw(o: DrawObj, live: boolean) {
+    const v = live ? { ...o, strokes: o.strokes.slice(0, -1) } : o;
+    const b = drawBounds(v);
     if (!b) { o.cache = null; return; }
     const k = Math.min(Math.max(o.scale, 0.25), 2400 / Math.max(b.x1 - b.x0, b.y1 - b.y0));
-    const key = `${o.ver}|${o.strokes.length}|${k.toFixed(3)}|${b.x0}|${b.y0}|${b.x1}|${b.y1}`;
+    const last = v.strokes[v.strokes.length - 1];
+    const key = `${o.ver}|${v.strokes.length}|${last?.pts.length ?? 0}|${k.toFixed(3)}|${b.x0}|${b.y0}|${b.x1}|${b.y1}`;
     if (o.cache && o.cacheKey === key) return;
-    const r = strokesTo(o, k);
+    const r = strokesTo(v, k);
     o.cache = r?.c ?? null;
     o.cacheKey = key;
     o.cb = b;
@@ -224,8 +237,16 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
       const r = strokesTo(o, Math.min(PRINT_SCALE * o.scale, 8000 / Math.max(o.w, o.h, 1)));
       if (r) g.drawImage(r.c, r.b.x0, r.b.y0, r.b.x1 - r.b.x0, r.b.y1 - r.b.y0);
     } else {
-      renderDraw(o);
+      const live = o === strokeObj && !!stroke && !stroke.erase;
+      renderDraw(o, live);
       if (o.cache && o.cb) g.drawImage(o.cache, o.cb.x0, o.cb.y0, o.cb.x1 - o.cb.x0, o.cb.y1 - o.cb.y0);
+      if (live && stroke) {
+        g.lineCap = 'round';
+        g.lineJoin = 'round';
+        g.strokeStyle = g.fillStyle = stroke.color;
+        g.lineWidth = stroke.size;
+        strokePath(g, stroke);
+      }
     }
     g.restore();
   }
@@ -266,8 +287,14 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
     }
     ctx.restore();
   }
+  // the plain fabric only changes with the shirt colour, so it is painted once and reused
+  const fabric = document.createElement('canvas');
+  fabric.width = fabric.height = TEX;
+  let fabricHex = '';
   function composite() {
-    paintFabric(ctx, state.colour.hex);
+    if (fabricHex !== state.colour.hex) { paintFabric(fabric.getContext('2d')!, state.colour.hex); fabricHex = state.colour.hex; }
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(fabric, 0, 0);
     for (const z of ZONES) {
       const b = ZONE_INFO[z];
       ctx.save();
@@ -284,14 +311,14 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
   }
 
   // ---------- interaction ----------
-  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), pick = makePicker(geo);
   function hit(cx: number, cy: number) {
     const r = renderer.domElement.getBoundingClientRect();
     ndc.set(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
-    const h = ray.intersectObject(mesh)[0];
-    if (!h || !h.uv) return null;
-    return { x: h.uv.x * TEX, y: (1 - h.uv.y) * TEX };
+    const h = pick(ray.ray, mesh.matrixWorld);
+    if (!h) return null;
+    return { x: h.u * TEX, y: (1 - h.v) * TEX };
   }
   function pickObj(p: { x: number; y: number }, type?: Obj['type']) {
     for (let i = state.objects.length - 1; i >= 0; i--) {
@@ -359,7 +386,7 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
     if (jump > 140 || zoneAt(h.x, h.y) !== zoneOf(o)) { penEnd(); penStart(h); return; }
     if (jump < 0.8) return;
     stroke.pts.push([l.x, l.y]);
-    o.ver++;
+    if (stroke.erase) o.ver++;
     dirty();
   }
   function penEnd() {
@@ -398,6 +425,7 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
       if (state.mode === 'draw' && h && zoneAt(h.x, h.y)) {
         snapshot();
         act = { t: 'draw' };
+        penDown = true;
         penStart(h);
       } else if (state.mode === 'move' && h && s && onHandle(s, h)) {
         snapshot();
@@ -473,7 +501,7 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
     if (!ptrs.has(e.pointerId)) return;
     ptrs.delete(e.pointerId);
     if (act && act.t === 'draw') penEnd();
-    if (ptrs.size === 0) { act = null; el.style.cursor = ''; }
+    if (ptrs.size === 0) { act = null; penDown = false; el.style.cursor = ''; }
     else if (act && (act.t === 'pinch' || act.t === 'pinchObj')) act = { t: 'idle' };
   };
   const onWheel = (e: WheelEvent) => {
@@ -496,9 +524,11 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
   function toast(msg: string) {
     const t = $('toast');
     t.textContent = msg;
+    // on phones the message sits at the top of the shirt view, above the collar, not over the shirt
+    stage.style.setProperty('--toast-top', `${host.offsetTop + 10}px`);
     t.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => (t.hidden = true), 3200);
+    toastTimer = window.setTimeout(() => (t.hidden = true), 2600);
   }
 
   const HINTS: Record<Mode, string> = {
@@ -930,6 +960,14 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
     const seen = inkSeen.get(o);
     if (seen?.key === key) return seen.ink;
     const b = ZONE_INFO[z], k = 0.5;
+    // quick answer for a drawing with no rubbing out: any pen point inside the print box is ink
+    if (o.type === 'draw' && !o.strokes.some((s) => s.erase) && o.strokes.some((s) => s.pts.some((p) => {
+      const w = toWorld(o, { x: p[0], y: p[1] });
+      return w.x >= b.x && w.x <= b.x + b.w && w.y >= b.y && w.y <= b.y + b.h;
+    }))) {
+      inkSeen.set(o, { key, ink: true });
+      return true;
+    }
     const c = document.createElement('canvas');
     c.width = Math.ceil(b.w * k);
     c.height = Math.ceil(b.h * k);

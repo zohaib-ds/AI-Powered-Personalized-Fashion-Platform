@@ -877,6 +877,7 @@ input[type="color"].dot { border: 1px solid var(--ink-line); border-radius: var(
   .quick { background: #fff; border-bottom: 1px solid var(--line); }
   .quick svg { color: var(--accent); }
   .quick button:active { background: var(--accent-soft); }
+  .stage .toast, .selbar[hidden] ~ .toast, .bgchip:not([hidden]) ~ .toast { top: var(--toast-top, 120px); bottom: auto; padding: 6px 12px; font-size: 13px; }
 }
 
 /* print partner and admin pages: new colours and corners */
@@ -931,3 +932,26 @@ input[type="color"].dot { border: 1px solid var(--ink-line); border-radius: var(
   .marquee { flex-wrap: wrap; }
   .idea-link:hover .idea-img img { transform: none; }
 }
+
+/* payment box (2026-11-11): amount on top, numbered steps, red reminder above I have paid */
+.upi-pay { grid-template-columns: 260px minmax(0, 1fr); gap: 32px; padding: 28px; }
+.upi-left { display: grid; gap: 10px; justify-items: center; }
+.upi-qr { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); }
+.upi-scan { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--muted); text-align: center; }
+.upi-amount { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 14px 16px; margin-bottom: 18px; background: var(--stage-2); border: 1px solid var(--line); border-radius: 10px; }
+.upi-amount span { font-size: 13.5px; color: var(--muted); }
+.upi-amount span:first-child { flex-basis: 100%; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; font-size: 12px; }
+.upi-amount strong { font-size: 34px; line-height: 1.1; letter-spacing: -0.02em; }
+.upi-body h2 { font-size: 20px; margin: 0 0 12px; }
+.upi-num { list-style: none; padding: 0; counter-reset: upi; display: grid; gap: 10px; margin: 0 0 16px; }
+.upi-num li { counter-increment: upi; position: relative; padding-left: 38px; margin: 0; line-height: 1.5; }
+.upi-num li::before { content: counter(upi); position: absolute; left: 0; top: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--fg); color: #fff; font-size: 13px; font-weight: 700; display: grid; place-items: center; }
+.upi-form .pay-alert { margin: 4px 0 0; padding: 10px 12px; color: #c4161c; background: #fdecec; border: 1px solid #f5c2c2; border-radius: 8px; font-size: 14.5px; font-weight: 600; justify-self: stretch; }
+.upi-form .pay-alert strong { color: inherit; }
+@media (max-width: 720px) {
+  .upi-pay { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 20px; }
+  .upi-left { justify-self: center; width: min(100%, 260px); }
+  .upi-qr { max-width: none; }
+  .upi-amount strong { font-size: 30px; }
+}
+

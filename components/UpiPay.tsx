@@ -23,10 +23,18 @@ export default function UpiPay({ orderId, code, amount, qr, link, missing, email
 
   return (
     <section className="card upi-pay" aria-label="Pay by UPI">
-      <div className="upi-qr" role="img" aria-label={`UPI QR code for ${amount}`} dangerouslySetInnerHTML={{ __html: qr }} />
+      <div className="upi-left">
+        <div className="upi-qr" role="img" aria-label={`UPI QR code for ${amount}`} dangerouslySetInnerHTML={{ __html: qr }} />
+        <p className="upi-scan">Scan with any UPI app</p>
+      </div>
       <div className="upi-body">
+        <div className="upi-amount">
+          <span>Amount to pay</span>
+          <strong>{amount}</strong>
+          <span>Order #{code}</span>
+        </div>
         <h2>Pay {amount} by UPI</h2>
-        <ol className="upi-steps">
+        <ol className="upi-steps upi-num">
           <li>Scan the QR code with any UPI app, such as Google Pay, PhonePe, Paytm or BHIM. If you are on your phone, tap <strong>Open UPI app</strong> instead.</li>
           <li>Check that the amount is {amount} and pay.</li>
           <li>After your payment is done, tap <strong>I have paid</strong>.</li>
@@ -44,6 +52,7 @@ export default function UpiPay({ orderId, code, amount, qr, link, missing, email
               <input id="utr" name="utr" className="inp" inputMode="numeric" autoComplete="off" maxLength={14} placeholder="12 digits" required />
             </>
           )}
+          <p className="pay-alert">After your payment is done, tap <strong>I have paid</strong> below so we can confirm your order.</p>
           <button type="button" className="btn primary big paid-btn" onClick={open}>I have paid</button>
           {error && <div className="err" role="alert">{error}</div>}
 
