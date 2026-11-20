@@ -1073,27 +1073,6 @@ export async function mountStudio(root: HTMLElement, onChange: (s: StudioChange)
     return { preview: await toBlob(v.front), views: await toBlob(v.sheet) };
   }
 
-  // save one picture with four views
-  let saving = false;
-  $('save').onclick = async () => {
-    if (saving) return;
-    saving = true;
-    persist();
-    try {
-      const { views } = await previews();
-      const url = URL.createObjectURL(views), a = document.createElement('a');
-      a.href = url;
-      a.download = 'my-wearsketch-tee.png';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 4000);
-      toast('Downloading my-wearsketch-tee.png');
-    } catch {
-      toast("Couldn't save the picture. Your design is still kept in this browser.");
-    } finally {
-      saving = false;
-    }
-  };
 
   // ---------- start ----------
   setShirt(state.colour);

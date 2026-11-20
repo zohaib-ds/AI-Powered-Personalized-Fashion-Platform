@@ -2,7 +2,7 @@
 // - UPI: when UPI_ID is set in Vercel, customers pay that UPI ID by QR code with the exact amount
 //   and type the 12 digit UPI reference (UTR). The admin checks the bank app and confirms.
 //   No gateway fee, but every payment is confirmed by hand.
-// - Cash on delivery: the customer pays the courier (₹15 extra, see lib/pricing.ts). The order is confirmed straight away.
+// - Cash on delivery: the customer pays the courier (₹19 extra, see lib/pricing.ts). The order is confirmed straight away.
 // - Sample: without UPI_ID, a sample provider approves every payment so the order flow can be tested.
 import { BRAND } from './brand';
 

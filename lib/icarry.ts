@@ -1,6 +1,6 @@
 import 'server-only';
 import { timingSafeEqual } from 'node:crypto';
-import { shirtName } from './design';
+import { shirtName, stateCode } from './design';
 import { COD_REF } from './payments';
 import { addressText, orderItems, supabaseAdmin, type OrderRow, type PrinterRow, type ShipInfo } from './supabase-server';
 
@@ -10,7 +10,7 @@ import { addressText, orderItems, supabaseAdmin, type OrderRow, type PrinterRow,
 // only saves the shipment in iCarry without booking, for testing.
 // API document: https://www.icarry.in/icarry-api.pdf
 const BASE = process.env.ICARRY_API_URL || 'https://www.icarry.in'; // override only for local tests
-const DELHI = { zoneId: '1483', state: 'DE' }; // iCarry's codes for Delhi, the only delivery area for now
+const DELHI = { zoneId: '1483' }; // iCarry's zone for Delhi, where the merchants (pickup addresses) are
 
 export const icarryOn = () => !!(process.env.ICARRY_USERNAME && process.env.ICARRY_API_KEY);
 export const icarryMode = (): 'test' | 'live' => (process.env.ICARRY_MODE === 'live' ? 'live' : 'test');
@@ -123,7 +123,7 @@ export async function bookShipment(o: OrderRow, p: PrinterRow): Promise<ShipInfo
           address: addressText(o).slice(0, 250),
           city: o.address_parts?.city || 'Delhi',
           pincode: o.pincode,
-          state: DELHI.state,
+          state: stateCode(o.address_parts?.state),
           country_code: 'IN',
         },
         parcel: {
@@ -147,6 +147,25 @@ export async function bookShipment(o: OrderRow, p: PrinterRow): Promise<ShipInfo
   } catch (e) {
     info.error = (e as Error).message.slice(0, 500);
     return info;
+  }
+}
+
+// Can iCarry deliver to this pincode? Each flag is Y (yes), N (no) or U (unknown).
+// iCarry answers success 0 with nothing in it when it does not cover the pincode at all.
+export type PincodeCheck = { covered: 'yes' | 'no' | 'unsure'; prepaid: string; cod: string } | { error: string };
+export async function checkPincode(pincode: string): Promise<PincodeCheck> {
+  if (!icarryOn()) return { error: 'iCarry is not set up. Add ICARRY_USERNAME and ICARRY_API_KEY in Vercel.' };
+  try {
+    const r = await call<{ success?: number | string; msg?: unknown }>('api_check_pincode', { pincode });
+    const rows = (r.msg && typeof r.msg === 'object' ? Object.values(r.msg as Record<string, unknown>) : [])
+      .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object');
+    if (Number(r.success) !== 1 || !rows.length) return { covered: 'no', prepaid: 'N', cod: 'N' };
+    // the best answer over iCarry's services (standard, express)
+    const best = (k: string) => (rows.some((x) => x[k] === 'Y') ? 'Y' : rows.some((x) => x[k] === 'U') ? 'U' : 'N');
+    const prepaid = best('prepaid'), cod = best('cod');
+    return { covered: prepaid === 'Y' || cod === 'Y' ? 'yes' : prepaid === 'U' || cod === 'U' ? 'unsure' : 'no', prepaid, cod };
+  } catch (e) {
+    return { error: (e as Error).message.slice(0, 200) };
   }
 }
 

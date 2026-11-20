@@ -11,7 +11,6 @@ import { FROM_PRICE, PRICES, quoteItem, rupee } from '@/lib/pricing';
 import type { StudioApi, StudioChange } from '@/lib/studio/engine';
 
 const Icon = {
-  download: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>,
   rotL: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" /></svg>,
   rotR: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7" /><path d="M21 4v5h-5" /></svg>,
   trash: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M6 6l1 14h10l1-14" /></svg>,
@@ -152,7 +151,6 @@ export default function Studio() {
               <button id="vFront" aria-pressed="true">Front</button>
               <button id="vBack" aria-pressed="false">Back</button>
             </div>
-            <button className="icon-btn" id="save" title="Download pictures of your shirt" aria-label="Download pictures of your shirt">{Icon.download}</button>
             <CartLink className="btn cart-btn" />
           </div>
         </div>
@@ -263,7 +261,7 @@ export default function Studio() {
 
           <div className="sec">
             <h2>Your shirt</h2>
-            <p className="empty">Your design is kept in this browser automatically. The download button saves a picture of your shirt from four sides.</p>
+            <p className="empty">Your design is kept in this browser automatically.</p>
             <button className="btn danger" id="reset">Start over</button>
           </div>
         </div>

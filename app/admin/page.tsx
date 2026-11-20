@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import AdminIdle from '@/components/AdminIdle';
+import DeliveryCheck from '@/components/DeliveryCheck';
 import { AddMerchantForm, MerchantDetailsForm, MerchantLoginForm, TestEmailForm } from '@/components/AdminForms';
 import PortalHeader from '@/components/PortalHeader';
 import PrintSpec, { Stars } from '@/components/PrintSpec';
@@ -20,7 +21,7 @@ import {
   type CityRequestRow, type OrderRow, type PayoutRow, type PrinterRow, type ReviewRow,
 } from '@/lib/supabase-server';
 import {
-  assignOrder, cancelUnpaid, deletePrinter, markDelivered, markShipped, retryCourier, setPrinterActive, setReviewPublic,
+  assignOrder, cancelArea, cancelUnpaid, deletePrinter, markDelivered, markShipped, retryCourier, setPrinterActive, setReviewPublic,
   payoutPaid, payoutRejected, paymentMissing, paymentReceived, setPickupId, startPaymentTest, stopPaymentTest, updateOrder,
 } from './actions';
 
@@ -33,6 +34,18 @@ const counted = (o: OrderRow) => o.status !== 'pending_payment' && o.status !== 
 const marginOf = (o: OrderRow) => o.total - (o.printer_cost ?? 0) - (o.price?.shipping ?? 0) - (o.refund_amount ?? 0);
 const codeOf = (o: OrderRow) => o.code ?? o.id.slice(0, 8).toUpperCase();
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+// city and state the customer typed, for checking the delivery area
+const placeOf = (o: OrderRow) => [o.address_parts?.city, o.address_parts?.state].filter(Boolean).join(', ');
+// cancel because we do not deliver there; the button is behind a tap so it is not hit by mistake
+const areaCancel = (o: OrderRow) => (
+  <details className="area-cancel">
+    <summary className="btn small ghost">Can&apos;t deliver there</summary>
+    <form action={cancelArea}>
+      <input type="hidden" name="id" value={o.id} />
+      <button className="btn small danger">Cancel #{codeOf(o)} and email the customer</button>
+    </form>
+  </details>
+);
 // the Orders tab filter: open work first, finished and cancelled orders out of the way
 const groupOf = (o: OrderRow) => (o.status === 'pending_payment' ? 'unpaid' : o.status === 'delivered' ? 'done' : o.status === 'cancelled' ? 'cancelled' : 'open');
 
@@ -75,6 +88,7 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
 
   // the To do list
   const toCheck = orders.filter((o) => o.status === 'pending_payment' && o.payment_ref?.startsWith(UTR_SENT));
+  const toDeliver = orders.filter((o) => o.status === 'paid');
   const needPrinter = orders.filter((o) => o.status === 'paid' && !o.printer_id);
   const pickups = orders.filter((o) => o.status === 'pickup_requested');
   const onTheWay = orders.filter((o) => o.status === 'shipped');
@@ -131,13 +145,36 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
                   <strong>{rupee(o.total)}</strong> for #{codeOf(o)} · {o.payment_ref!.slice(UTR_SENT.length)
                     ? <>UPI ref <code>{o.payment_ref!.slice(UTR_SENT.length)}</code></>
                     : <>no reference number, look for the note “{BRAND.name} order {codeOf(o)}”</>}
-                  <div className="muted">{o.customer_name}, {o.phone} · ordered {fmt(o.created_at)}{o.status_times?.payment_claimed ? ` · said paid ${fmt(o.status_times.payment_claimed)}` : ''}</div>
+                  <div className="muted">{o.customer_name}, {o.phone} · pincode {o.pincode}{placeOf(o) ? `, ${placeOf(o)}` : ''} · ordered {fmt(o.created_at)}{o.status_times?.payment_claimed ? ` · said paid ${fmt(o.status_times.payment_claimed)}` : ''}</div>
                 </div>
               </div>
               <div className="todo-act">
                 <form action={paymentReceived}><input type="hidden" name="id" value={o.id} /><button className="btn primary small">Money received</button></form>
                 <form action={paymentMissing}><input type="hidden" name="id" value={o.id} /><button className="btn small ghost">Not found, ask again</button></form>
                 <form action={cancelUnpaid}><input type="hidden" name="id" value={o.id} /><button className="btn small ghost">Cancel order</button></form>
+                {areaCancel(o)}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {toDeliver.length > 0 && (
+        <section className="card">
+          <h3>New orders: check the pincode</h3>
+          <p className="muted">Confirmed orders the merchant has not started printing. If iCarry does not deliver to the pincode, cancel the order here: the customer gets an email, and a paid UPI order is marked as a refund to send back within 48 hours.</p>
+          {toDeliver.map((o) => (
+            <div key={o.id} className="todo-row">
+              <div className="todo-main">
+                {thumb(o)}
+                <div>
+                  <strong>#{codeOf(o)}</strong> · pincode <strong>{o.pincode}</strong>{placeOf(o) ? `, ${placeOf(o)}` : ''}
+                  <div className="muted">{o.customer_name} · {rupee(o.total)} · {o.payment_ref === COD_REF ? 'cash on delivery' : 'paid by UPI'} · {fmt(o.created_at)}</div>
+                </div>
+              </div>
+              <div className="todo-act">
+                {icarryOn() && <DeliveryCheck pincode={o.pincode} />}
+                {areaCancel(o)}
               </div>
             </div>
           ))}
@@ -484,7 +521,7 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
   }, {})).sort((a, b) => b[1] - a[1]);
   const citiesPanel = (
     <>
-      {!cityRequests.length && <div className="card empty">No requests yet. People outside Delhi can send one with Want it in your city? at checkout.</div>}
+      {!cityRequests.length && <div className="card empty">No requests. We now deliver across India, so the Want it in your city? form is gone. Older requests show here.</div>}
       {cityRequests.length > 0 && (
         <div className="card">
           <h3>Most asked for</h3>

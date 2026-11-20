@@ -955,3 +955,9 @@ input[type="color"].dot { border: 1px solid var(--ink-line); border-radius: var(
   .upi-amount strong { font-size: 30px; }
 }
 
+
+/* admin: "Can't deliver there" opens a second, red button so an order is never cancelled by one tap */
+.area-cancel summary { list-style: none; cursor: pointer; }
+.area-cancel summary::-webkit-details-marker { display: none; }
+.area-cancel[open] summary { margin-bottom: 6px; }
+.area-cancel form { display: flex; }
