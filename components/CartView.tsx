@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { cartItems, clearCart, copyCartItem, removeFromCart, setCartQty, setCartSize, type CartItem } from '@/lib/cart';
-import { ADDRESS_FIELDS, COLOURS, isDelhiPincode, isMobile, isSize, mobileDigits, SIZES, TEST_SIZE, type Address, type SizeId } from '@/lib/design';
+import { ADDRESS_FIELDS, COLOURS, isMobile, isPincode, isState, isSize, mobileDigits, SIZES, STATES, TEST_SIZE, type Address, type SizeId } from '@/lib/design';
 import { rememberOrder } from '@/lib/my-orders';
 import { PRICES, quoteOrder, rupee } from '@/lib/pricing';
 
@@ -27,7 +27,6 @@ export default function CartView({ upi }: { upi: boolean }) {
   const [phone, setPhone] = useState('');
   const [pincode, setPincode] = useState('');
   const [pay, setPay] = useState<'now' | 'cod'>('now');
-  const notice = useRef<HTMLDialogElement>(null);
   const formTop = useRef<HTMLHeadingElement>(null);
 
   // the ₹1 payment test size, only when the admin turned it on in this browser
@@ -77,7 +76,6 @@ export default function CartView({ upi }: { upi: boolean }) {
   }
 
   function goToDetails() {
-    notice.current?.close();
     setStep('details');
     requestAnimationFrame(() => formTop.current?.scrollIntoView({ block: 'start' }));
   }
@@ -92,7 +90,8 @@ export default function CartView({ upi }: { upi: boolean }) {
     if (!isMobile(phone)) { setError('Enter a 10-digit mobile number, without +91 or a leading 0.'); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email)) { setError('Enter your email address. We send your order updates there.'); return; }
     if (f.get('agree') !== 'on') { setError('Tick the box to agree to the terms and conditions and the privacy policy.'); return; }
-    if (!isDelhiPincode(address.pincode)) { setError('We deliver only in Delhi for now. Enter a pincode that starts with 110.'); return; }
+    if (!isState(address.state ?? '')) { setError('Pick your state from the list.'); return; }
+    if (!isPincode(address.pincode)) { setError('Enter a 6-digit pincode.'); return; }
     try {
       setBusy('Saving your order…');
       const res = await fetch('/api/orders', {
@@ -204,6 +203,11 @@ export default function CartView({ upi }: { upi: boolean }) {
                   {a.key === 'pincode' ? (
                     <input className="inp" id="pincode" name="pincode" required inputMode="numeric" autoComplete="postal-code" pattern="[0-9]{6}"
                       title="6-digit pincode" value={pincode} onChange={(e) => setPincode(digits(e.target.value, 6))} />
+                  ) : a.key === 'state' ? (
+                    <select className="inp" id="state" name="state" required defaultValue="" autoComplete="address-level1">
+                      <option value="" disabled>Pick your state</option>
+                      {STATES.map((s) => <option key={s.code} value={s.name}>{s.name}</option>)}
+                    </select>
                   ) : (
                     <input className="inp" id={a.key} name={a.key} required={a.required} maxLength={a.max} placeholder={a.placeholder}
                       autoComplete={a.key === 'city' ? 'address-level2' : a.key === 'house' ? 'address-line1' : a.key === 'building' ? 'address-line2' : 'off'} />
@@ -241,22 +245,9 @@ export default function CartView({ upi }: { upi: boolean }) {
         </tbody></table>
         <p className="note">Delivery is {rupee(PRICES.delivery.base)} for up to {PRICES.delivery.perShirts} shirts, then {rupee(PRICES.delivery.step)} more for every {PRICES.delivery.perShirts} shirts after that.</p>
         {step === 'cart' && noSize >= 0 && <div className="err" role="alert">Pick a size for design {noSize + 1}.</div>}
-        {step === 'cart' && <button className="btn primary big" disabled={noSize >= 0} onClick={() => notice.current?.showModal()}>Checkout</button>}
+        {step === 'cart' && <button className="btn primary big" disabled={noSize >= 0} onClick={goToDetails}>Checkout</button>}
       </aside>
 
-      {/* tapping outside the box closes it */}
-      <dialog ref={notice} className="notice-dialog" aria-labelledby="noticeTitle" onClick={(e) => {
-        const r = e.currentTarget.getBoundingClientRect();
-        if (e.target === e.currentTarget && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom)) notice.current?.close();
-      }}>
-        <h2 id="noticeTitle">We deliver only in Delhi for now</h2>
-        <p>Right now we can print and deliver orders only to addresses in Delhi, with a pincode that starts with 110. If your address is in Delhi, continue to checkout.</p>
-        <p className="muted">Not in Delhi? Tell us where you are and we will let you know when we deliver there. Your designs stay saved in this browser.</p>
-        <div className="co-actions">
-          <Link className="btn ghost" href="/your-city">Want it in your city?</Link>
-          <button className="btn primary" onClick={goToDetails}>My address is in Delhi</button>
-        </div>
-      </dialog>
     </div>
   );
 }

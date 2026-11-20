@@ -124,9 +124,23 @@ export interface DesignSummary {
 
 export const zonesUsed = (d: Pick<DesignSummary, 'prints'>): Zone[] => ZONES.filter((z) => d.prints.some((p) => p.zone === z));
 
-export function isDelhiPincode(pin: string): boolean {
-  return /^110\d{3}$/.test(pin.trim());
+// any Indian pincode: six digits, never starting with 0
+export function isPincode(pin: string): boolean {
+  return /^[1-9]\d{5}$/.test(pin.trim());
 }
+
+// States and union territories with the courier's (iCarry's) two letter codes
+export const STATES: { name: string; code: string }[] = [
+  ['Andaman and Nicobar Islands', 'AN'], ['Andhra Pradesh', 'AP'], ['Arunachal Pradesh', 'AR'], ['Assam', 'AS'], ['Bihar', 'BI'],
+  ['Chandigarh', 'CH'], ['Chhattisgarh', 'CG'], ['Dadra and Nagar Haveli', 'DA'], ['Daman and Diu', 'DM'], ['Delhi', 'DE'], ['Goa', 'GO'],
+  ['Gujarat', 'GU'], ['Haryana', 'HA'], ['Himachal Pradesh', 'HP'], ['Jammu and Kashmir', 'JA'], ['Jharkhand', 'JH'], ['Karnataka', 'KA'],
+  ['Kerala', 'KE'], ['Ladakh', 'LA'], ['Lakshadweep', 'LI'], ['Madhya Pradesh', 'MP'], ['Maharashtra', 'MA'], ['Manipur', 'MN'],
+  ['Meghalaya', 'ME'], ['Mizoram', 'MI'], ['Nagaland', 'NA'], ['Odisha', 'OD'], ['Puducherry', 'PO'], ['Punjab', 'PU'], ['Rajasthan', 'RA'],
+  ['Sikkim', 'SI'], ['Tamil Nadu', 'TN'], ['Telangana', 'TS'], ['Tripura', 'TR'], ['Uttar Pradesh', 'UP'], ['Uttarakhand', 'UK'], ['West Bengal', 'WB'],
+].map(([name, code]) => ({ name, code }));
+export const isState = (s: string) => STATES.some((x) => x.name === s);
+// the courier's code for a state; orders from before the State field were all in Delhi
+export const stateCode = (s: string | undefined | null) => STATES.find((x) => x.name === s)?.code ?? 'DE';
 
 export const shortId = (id: string) => id.slice(0, 8).toUpperCase();
 
@@ -148,6 +162,7 @@ export interface Address {
   area: string; // area, colony or sector
   landmark: string; // optional
   city: string;
+  state?: string; // one of STATES; orders from before November 2026 have none
   pincode: string;
 }
 
@@ -158,11 +173,12 @@ export const ADDRESS_FIELDS: { key: keyof Address; label: string; required: bool
   { key: 'area', label: 'Area, colony or sector', required: true, max: 120 },
   { key: 'landmark', label: 'Landmark (optional)', required: false, max: 120, placeholder: 'e.g. near the metro station' },
   { key: 'city', label: 'City', required: true, max: 60 },
+  { key: 'state', label: 'State', required: true, max: 40 },
   { key: 'pincode', label: 'Pincode', required: true, max: 6 },
 ];
 
 // One line for labels and old screens: "B-24, 2nd floor, Rose Apartments, Lajpat Nagar, near the metro station, City"
 export function formatAddress(a: Partial<Address>): string {
   const landmark = a.landmark ? (/^(near|opp|opposite|behind|next to)\b/i.test(a.landmark) ? a.landmark : `near ${a.landmark}`) : '';
-  return [a.house, a.floor, a.building, a.area, landmark, a.city].map((s) => (s ?? '').trim()).filter(Boolean).join(', ');
+  return [a.house, a.floor, a.building, a.area, landmark, a.city, a.state].map((s) => (s ?? '').trim()).filter(Boolean).join(', ');
 }

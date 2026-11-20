@@ -6,8 +6,8 @@ import { ADMIN_COOKIE, adminTokenValid, TEST_COOKIE, testCookieOptions, testToke
 import { giveToMerchant } from '@/lib/auto-assign';
 import { isMobile, mobileDigits } from '@/lib/design';
 import { hashPassword, openPassword, sealPassword } from '@/lib/printer-auth';
-import { UTR_MISSING, UTR_SENT } from '@/lib/payments';
-import { bookShipment, icarryOn, registerPickup } from '@/lib/icarry';
+import { COD_REF, UTR_MISSING, UTR_SENT } from '@/lib/payments';
+import { bookShipment, checkPincode, icarryOn, registerPickup, type PincodeCheck } from '@/lib/icarry';
 import { sendOrderMail, sendTestMail } from '@/lib/mail';
 import { ISSUE_LABEL, stampStatus, STATUS_LABEL, supabaseAdmin, type OrderRow, type OrderStatus, type PrinterRow } from '@/lib/supabase-server';
 
@@ -332,6 +332,37 @@ export async function cancelUnpaid(form: FormData) {
   await sendOrderMail('cancelled', o);
   revalidatePath('/admin');
   revalidatePath(`/order/${id}`);
+}
+
+// We cannot deliver to the order's pincode: cancel it before printing and email the customer.
+// A UPI order that was already paid is marked as a refund, so the money is sent back.
+export async function cancelArea(form: FormData) {
+  await requireAdmin();
+  const id = String(form.get('id') || '');
+  if (!isId(id)) return;
+  const db = supabaseAdmin();
+  const { data } = await db.from('orders').select('*').eq('id', id).single();
+  const o = data as OrderRow | null;
+  if (!o || (o.status !== 'pending_payment' && o.status !== 'paid')) return;
+  const now = new Date().toISOString();
+  const refund = o.status === 'paid' && o.payment_ref !== COD_REF;
+  const { data: moved } = await db.from('orders').update({
+    status: 'cancelled', updated_at: now, status_times: stampStatus(o.status_times, 'cancelled', now),
+    ...(refund ? { issue: 'refund', refund_amount: o.total, issue_note: `Cancelled: we do not deliver to pincode ${o.pincode}. Send ${o.total} back to the customer within 48 hours.` } : {}),
+  }).eq('id', id).eq('status', o.status).select('id');
+  if (!moved?.length) return; // it moved on in the meantime, for example the merchant started printing
+  await sendOrderMail('area', o);
+  revalidatePath('/admin');
+  revalidatePath('/printer');
+  revalidatePath(`/order/${id}`);
+}
+
+// Asks iCarry whether it delivers to a pincode. Changes nothing.
+export async function checkDelivery(_prev: PincodeCheck | null, form: FormData): Promise<PincodeCheck | null> {
+  await requireAdmin();
+  const pin = String(form.get('pincode') || '').trim();
+  if (!/^[1-9]\d{5}$/.test(pin)) return { error: 'This order has no valid pincode.' };
+  return checkPincode(pin);
 }
 
 export async function paymentMissing(form: FormData) {

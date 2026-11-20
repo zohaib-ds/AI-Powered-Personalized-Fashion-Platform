@@ -1,6 +1,7 @@
 import 'server-only';
 import nodemailer from 'nodemailer';
 import { BRAND } from './brand';
+import { COD_REF } from './payments';
 import { rupee } from './pricing';
 import { siteUrl } from './site';
 import type { OrderRow } from './supabase-server';
@@ -13,9 +14,9 @@ export const mailOn = () => !!(BRAND.email && process.env.GMAIL_APP_PASSWORD);
 // How long checking a UPI payment takes, as promised on the order page and in the first email.
 export const CHECK_PROMISE = 'We check payments every day, and your order is usually confirmed within 24 hours.';
 
-export type OrderMail = 'claimed' | 'confirmed' | 'cod' | 'missing' | 'cancelled';
+export type OrderMail = 'claimed' | 'confirmed' | 'cod' | 'missing' | 'cancelled' | 'area';
 
-type MailOrder = Pick<OrderRow, 'id' | 'code' | 'customer_name' | 'email' | 'total'>;
+type MailOrder = Pick<OrderRow, 'id' | 'code' | 'customer_name' | 'email' | 'total' | 'pincode' | 'status' | 'payment_ref'>;
 
 function content(kind: OrderMail, o: MailOrder): { subject: string; lines: string[] } {
   const code = o.code ?? o.id.slice(0, 8).toUpperCase();
@@ -55,6 +56,16 @@ function content(kind: OrderMail, o: MailOrder): { subject: string; lines: strin
         subject: `Order #${code} was cancelled`,
         lines: [hi, `We could not find a payment of ${rupee(o.total)} for order #${code}, so we have cancelled it. Nothing will be printed or charged.`,
           'If you did pay, reply to this email with the 12 digit UPI reference number from your UPI app and we will sort it out.'],
+      };
+    // we cannot deliver to the pincode; o is the order as it was before it was cancelled
+    case 'area':
+      return {
+        subject: `Order #${code} was cancelled: we do not deliver to your area yet`,
+        lines: [hi, `We are sorry. Our courier partners do not deliver to pincode ${o.pincode} yet, so we have cancelled order #${code}. Nothing will be printed.`,
+          o.payment_ref === COD_REF ? 'You chose cash on delivery, so you have not been charged anything.'
+            : o.status === 'paid' ? `Your payment of ${rupee(o.total)} will come back to your account within 24 to 48 hours.`
+              : `If you have already paid ${rupee(o.total)} for it, the money will come back to your account within 24 to 48 hours.`,
+          'If you have any questions, reply to this email and mention your order number.'],
       };
   }
 }

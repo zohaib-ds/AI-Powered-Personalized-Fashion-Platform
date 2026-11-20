@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { TEST_COOKIE, testUntil } from '@/lib/admin-session';
-import { ADDRESS_FIELDS, COLOURS, FONTS, formatAddress, isDelhiPincode, isMobile, isSize, mobileDigits, shortId, ZONES, zonesUsed, type Address, type PrintSummary, type SizeId } from '@/lib/design';
+import { ADDRESS_FIELDS, COLOURS, FONTS, formatAddress, isMobile, isPincode, isState, isSize, mobileDigits, shortId, ZONES, zonesUsed, type Address, type PrintSummary, type SizeId } from '@/lib/design';
 import { COD_REF, upiOn } from '@/lib/payments';
 import { PRICES, quoteOrder } from '@/lib/pricing';
 import { PRINT_BUCKET, supabaseAdmin, type OrderItem } from '@/lib/supabase-server';
@@ -57,9 +57,8 @@ export async function POST(req: Request) {
   if (cod && clean.some((i) => i.size === 'test')) return NextResponse.json({ error: 'The ₹1 test size is for trying UPI, not cash on delivery.' }, { status: 400 });
   const missing = ADDRESS_FIELDS.find((f) => f.required && !address[f.key]);
   if (missing) return NextResponse.json({ error: `Please fill in: ${missing.label}.` }, { status: 400 });
-  if (!isDelhiPincode(address.pincode)) {
-    return NextResponse.json({ error: 'We deliver only in Delhi for now. Enter a pincode that starts with 110.' }, { status: 400 });
-  }
+  if (!isPincode(address.pincode)) return NextResponse.json({ error: 'Enter a 6-digit pincode.' }, { status: 400 });
+  if (!isState(address.state ?? '')) return NextResponse.json({ error: 'Pick your state from the list.' }, { status: 400 });
 
   const q = quoteOrder(clean, cod);
   let db;

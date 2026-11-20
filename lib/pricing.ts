@@ -12,7 +12,7 @@ export const PRICES = {
     secondSide: 50, // printing both front and back
     sleeve: 25, // each printed sleeve
   },
-  codFee: 15, // extra for cash on delivery, so most people pay first
+  codFee: 19, // extra for cash on delivery, so most people pay first
   maxQty: 10, // shirts of one design
   maxItems: 10, // designs in one cart
 };
